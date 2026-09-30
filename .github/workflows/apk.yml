@@ -1,4 +1,3 @@
-
 name: Kocaaslan Is Takip APK
 
 on:
@@ -19,8 +18,8 @@ jobs:
       - name: Dosyalari al
         uses: actions/checkout@v4
 
-      - name: Projeyi ZIP dosyasindan cikar
-        run: unzip -q KocaaslanIsTakip_Android_Proje_v2.zip
+      - name: Projeyi ac
+        run: unzip -q KocaaslanIsTakip_Android_Proje_v3.zip
 
       - name: Java 17 kur
         uses: actions/setup-java@v5
@@ -41,12 +40,24 @@ jobs:
             "platforms;android-36" \
             "build-tools;35.0.0"
 
+      - name: Imza anahtarini ac
+        env:
+          SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
+        run: |
+          test -n "$SIGNING_PASSWORD"
+          openssl enc -d -aes-256-cbc -pbkdf2 \
+            -in KocaaslanIsTakip/app/kocaaslan-release.jks.enc \
+            -out KocaaslanIsTakip/app/kocaaslan-release.jks \
+            -pass env:SIGNING_PASSWORD
+
       - name: APK olustur
         working-directory: KocaaslanIsTakip
-        run: gradle --no-daemon :app:assembleDebug
+        env:
+          KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
 
       - name: APK dosyasini kaydet
         uses: actions/upload-artifact@v4
         with:
           name: KocaaslanIsTakip-APK
-          path: KocaaslanIsTakip/app/build/outputs/apk/debug/app-debug.apk
+          path: KocaaslanIsTakip/app/build/outputs/apk/release/app-release.apk
