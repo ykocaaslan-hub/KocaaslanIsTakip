@@ -43,7 +43,7 @@ jobs:
   
 
       - name: APK olustur
-        working-directory: KocaaslanIsTakip
+        
         env:
           KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
