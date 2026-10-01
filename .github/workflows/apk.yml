@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Projeyi ac
-        run: unzip -q KocaaslanIsTakip_Android_Proje_v6.zip
+        run: unzip -q KocaaslanIsTakip_v1.3.1_Codex_Uygulanmis.zip.zip
 
       - name: Java 17 kur
         uses: actions/setup-java@v5
