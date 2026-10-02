@@ -188,7 +188,22 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{db.delete(t.id);refresh();}).show();}
 
-    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else new AlertDialog.Builder(this).setTitle("İş Takip v1.4.0").setMessage("Kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler yalnızca bu cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
+    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","İşletme adlarını değiştir","Tarih aralığı seç","Kategori raporu","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)renameBusinesses();else if(which==3)chooseRange();else if(which==4)showCategoryReport();else new AlertDialog.Builder(this).setTitle("İş Takip v1.4.0").setMessage("Kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler yalnızca bu cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
+    private void renameBusinesses(){
+        LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(8),dp(20),0);
+        EditText one=new EditText(this);one.setHint("1. işletme adı");one.setText(B1);form.addView(one);
+        EditText two=new EditText(this);two.setHint("2. işletme adı");two.setText(B2);form.addView(two);
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle("İşletme adları").setView(form).setNegativeButton("Vazgeç",null).setPositiveButton("Kaydet",null).create();
+        dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            String n1=one.getText().toString().trim(),n2=two.getText().toString().trim();
+            if(n1.isEmpty()){one.setError("1. işletme adı boş olamaz");return;} if(n2.isEmpty())n2=DEFAULT_B2;
+            String old1=B1,old2=B2; B1=n1;B2=n2;
+            prefs.edit().putString("business1",B1).putString("business2",B2).apply();
+            if(old1.equals(business))business=B1;else if(old2.equals(business))business=B2;
+            dlg.dismiss();buildUi();
+        }));dlg.show();
+    }
+
     private void setPin(){EditText in=new EditText(this);in.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);in.setHint("4 haneli PIN");new AlertDialog.Builder(this).setTitle("PIN oluştur").setView(in).setNegativeButton("Vazgeç",null).setPositiveButton("Kaydet",(d,w)->{String p=in.getText().toString();if(p.matches("[0-9]{4}")){prefs.edit().putString("pin",p).apply();Toast.makeText(this,"PIN kaydedildi",Toast.LENGTH_SHORT).show();}else Toast.makeText(this,"PIN 4 rakam olmalı",Toast.LENGTH_LONG).show();}).show();}
 
     private void beginCsv(){long[] r=filterRange();exportStart=r[0];exportEnd=r[1];Intent i=new Intent("android.intent.action.CREATE_DOCUMENT");i.setType("text/csv");i.putExtra(Intent.EXTRA_TITLE,"IsTakip_"+safe(business)+"_"+new SimpleDateFormat("yyyyMMdd",Locale.US).format(new Date())+".csv");startActivityForResult(i,REQ_CSV);}
