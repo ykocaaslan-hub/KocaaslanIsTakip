@@ -53,4 +53,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: KocaaslanIsTakip-APK
-          path: KocaaslanIsTakip/app/build/outputs/apk/release/app-release.apk
+          path: path: app/build/outputs/apk/release/app-release.apk
