@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "843146893658",
+    "project_id": "kocaaslanistakip",
+    "storage_bucket": "kocaaslanistakip.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:843146893658:android:e4d6f5ba7f7e3a54bd3b63",
+        "android_client_info": {
+          "package_name": "com.kocaaslan.istakip"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBP9MdafJkUk1PIQDj1eU01q6ZqZRp1IJQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
