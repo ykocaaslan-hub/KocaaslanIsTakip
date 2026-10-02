@@ -1,0 +1,54 @@
+name: Is Takip Genel APK
+
+on:
+  push:
+    branches:
+      - genel-dagitim
+    paths:
+      - 'general-src/**'
+      - '.github/workflows/general-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - name: Dosyalari al
+        uses: actions/checkout@v4
+
+      - name: Imzalama dosyasini yerlestir
+        run: cp kocaaslan-release.jks general-src/app/kocaaslan-release.jks
+
+      - name: Java 17 kur
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle kur
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Android SDK paketlerini kur
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;35.0.0"
+
+      - name: Genel APK olustur
+        working-directory: general-src
+        env:
+          KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: APK dosyasini kaydet
+        uses: actions/upload-artifact@v4
+        with:
+          name: IsTakip-Genel-APK
+          path: general-src/app/build/outputs/apk/release/app-release.apk
