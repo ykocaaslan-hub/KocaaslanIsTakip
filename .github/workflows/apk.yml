@@ -53,5 +53,3 @@ jobs:
         with:
           name: KocaaslanIsTakip-APK
           path: app/build/outputs/apk/release/app-release.apk
-
-# ChatGPT workflow write permission test - 2026-10-02
