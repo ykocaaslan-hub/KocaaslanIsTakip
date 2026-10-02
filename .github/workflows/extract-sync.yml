@@ -2,11 +2,6 @@ name: Kocaaslan Senkron Kaynak Hazirla
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - kocaaslan-senkron
-    paths:
-      - '.github/workflows/extract-sync.yml'
 
 permissions:
   contents: write
