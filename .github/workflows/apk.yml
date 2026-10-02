@@ -49,9 +49,9 @@ jobs:
           KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
 
-      - name: APK dosyasini kaydet
+      - name: APK dosyasini kayde
         uses: actions/upload-artifact@v4
         with:
           name: KocaaslanIsTakip-APK
           
-path: app/build/outputs/apk/release/app-release.apk
+        path: app/build/outputs/apk/release/app-release.apk
