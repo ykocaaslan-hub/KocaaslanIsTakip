@@ -1,9 +1,6 @@
 name: Genel Dagitim Kaynaklarini Ac
 
 on:
-  push:
-    branches:
-      - genel-dagitim
   workflow_dispatch:
 
 permissions:
