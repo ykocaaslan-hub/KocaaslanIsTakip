@@ -20,7 +20,8 @@ jobs:
 
       - name: Projeyi ac
         run: unzip -q KocaaslanIsTakip_v1.3.1_Codex_Uygulanmis.zip
-
+      - name: Imzalama dosyasini yerlestir
+        run: cp kocaaslan-release.jks app/kocaaslan-release.jks
       - name: Java 17 kur
         uses: actions/setup-java@v5
         with:
