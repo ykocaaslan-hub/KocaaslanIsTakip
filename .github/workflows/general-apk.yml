@@ -50,5 +50,5 @@ jobs:
       - name: APK dosyasini kaydet
         uses: actions/upload-artifact@v4
         with:
-          name: IsTakip-Genel-APK
+          name: IsTakip-Dagitim-APK
           path: general-src/app/build/outputs/apk/release/app-release.apk
