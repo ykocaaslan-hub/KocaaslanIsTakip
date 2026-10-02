@@ -1,0 +1,27 @@
+name: Kocaaslan Senkron Kaynak Hazirla
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kocaaslan-senkron
+      - name: Kaynaklari ac
+        run: |
+          rm -rf sync-src
+          mkdir sync-src
+          unzip -q -o KocaaslanIsTakip_v1.3.1_Codex_Uygulanmis.zip -d sync-src
+      - name: Kaynaklari kaydet
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sync-src
+          git commit -m "Prepare source for phone tablet sync" || exit 0
+          git push origin HEAD:kocaaslan-senkron
