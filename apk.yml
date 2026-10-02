@@ -9,9 +9,6 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      KOCAASLAN_STORE_PASSWORD: -ctkl_ZFj5LfWDoYs7JdElJK
-      KOCAASLAN_KEY_PASSWORD: -ctkl_ZFj5LfWDoYs7JdElJK
-      KOCAASLAN_KEY_ALIAS: kocaaslan
     steps:
       - uses: actions/checkout@v4
       - name: Projeyi ac
