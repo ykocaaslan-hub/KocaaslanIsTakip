@@ -19,9 +19,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Projeyi ac
-        run: unzip -q KocaaslanIsTakip_v1.3.1_Codex_Uygulanmis.zip
+        run: unzip -q -o KocaaslanIsTakip_v1.3.1_Codex_Uygulanmis.zip
+
       - name: Imzalama dosyasini yerlestir
         run: cp kocaaslan-release.jks app/kocaaslan-release.jks
+
       - name: Java 17 kur
         uses: actions/setup-java@v5
         with:
@@ -39,15 +41,15 @@ jobs:
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
-            
-            
-       - name: APK olustur
+            "build-tools;35.0.0"
+
+      - name: APK olustur
         env:
           KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
+
       - name: APK dosyasini kaydet
         uses: actions/upload-artifact@v4
         with:
           name: KocaaslanIsTakip-APK
-          path: app/build/outputs/apk/release/app-release.apk     
-  
+          path: app/build/outputs/apk/release/app-release.apk
