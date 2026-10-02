@@ -99,7 +99,7 @@ public class DbHelper extends SQLiteOpenHelper {
 
     public List<Transaction> list(String business, String search, long start, long end, int limit) {
         List<Transaction> out = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT id,business,type,amount,category,note,date FROM " + T + " WHERE business=?");
+        StringBuilder sql = new StringBuilder("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM " + T + " WHERE business=?");
         List<String> args = new ArrayList<>(); args.add(business);
         if (start > 0) { sql.append(" AND date>=?"); args.add(String.valueOf(start)); }
         if (end > 0) { sql.append(" AND date<?"); args.add(String.valueOf(end)); }
@@ -111,19 +111,37 @@ public class DbHelper extends SQLiteOpenHelper {
         if (limit > 0) sql.append(" LIMIT ").append(limit);
         Cursor c = getReadableDatabase().rawQuery(sql.toString(), args.toArray(new String[0]));
         try {
-            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6)));
+            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6), c.getString(7), c.getLong(8)));
         } finally { c.close(); }
         return out;
     }
 
     public List<Transaction> all() {
         List<Transaction> out = new ArrayList<>();
-        Cursor c = getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date FROM " + T + " ORDER BY date,id", null);
+        Cursor c = getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM " + T + " ORDER BY date,id", null);
         try {
-            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6)));
+            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6), c.getString(7), c.getLong(8)));
         } finally { c.close(); }
         return out;
     }
+
+
+    public Transaction byId(long id) {
+        Cursor c=getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM "+T+" WHERE id=?",new String[]{String.valueOf(id)});
+        try { if(c.moveToFirst()) return new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getDouble(3),c.getString(4),c.getString(5),c.getLong(6),c.getString(7),c.getLong(8)); }
+        finally { c.close(); }
+        return null;
+    }
+
+    public void upsertFromCloud(Transaction t) {
+        ContentValues v=new ContentValues();
+        v.put("business",t.business);v.put("type",t.type);v.put("amount",t.amount);v.put("category",t.category);v.put("note",t.note);v.put("date",t.date);
+        v.put("sync_id",t.syncId);v.put("updated_at",t.updatedAt);v.put("sync_state",0);
+        int n=getWritableDatabase().update(T,v,"sync_id=?",new String[]{t.syncId});
+        if(n==0)getWritableDatabase().insertOrThrow(T,null,v);
+    }
+
+    public void deleteBySyncId(String syncId) { if(syncId!=null)getWritableDatabase().delete(T,"sync_id=?",new String[]{syncId}); }
 
     public double[][] lastSixMonths(String business) {
         double[][] r = new double[6][2];
