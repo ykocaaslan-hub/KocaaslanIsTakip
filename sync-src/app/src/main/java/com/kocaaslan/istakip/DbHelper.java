@@ -45,7 +45,8 @@ public class DbHelper extends SQLiteOpenHelper {
     public long add(String business, String type, double amount, String category, String note, long date) {
         ContentValues v = new ContentValues();
         v.put("business", business); v.put("type", type); v.put("amount", amount);
-        v.put("category", category); v.put("note", note); v.put("date", date);\n        v.put("sync_id", java.util.UUID.randomUUID().toString()); v.put("updated_at", System.currentTimeMillis()); v.put("sync_state", 1);
+        v.put("category", category); v.put("note", note); v.put("date", date);
+        v.put("sync_id", java.util.UUID.randomUUID().toString()); v.put("updated_at", System.currentTimeMillis()); v.put("sync_state", 1);
         return getWritableDatabase().insertOrThrow(T, null, v);
     }
 
