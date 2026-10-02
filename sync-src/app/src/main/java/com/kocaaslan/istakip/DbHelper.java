@@ -12,7 +12,7 @@ import java.util.List;
 
 public class DbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kocaaslan_is_takip.db";
-    private static final int DB_VERSION = 1;
+    private static final int DB_VERSION = 2;
     private static final String T = "transactions";
 
     public DbHelper(Context c) { super(c, DB_NAME, null, DB_VERSION); }
@@ -25,22 +25,33 @@ public class DbHelper extends SQLiteOpenHelper {
                 "amount REAL NOT NULL," +
                 "category TEXT," +
                 "note TEXT," +
-                "date INTEGER NOT NULL)");
+                "date INTEGER NOT NULL," +
+                "sync_id TEXT," +
+                "updated_at INTEGER NOT NULL DEFAULT 0," +
+                "sync_state INTEGER NOT NULL DEFAULT 1)");
         db.execSQL("CREATE INDEX idx_business_date ON " + T + "(business,date)");
     }
 
-    @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { }
+    @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE " + T + " ADD COLUMN sync_id TEXT");
+            db.execSQL("ALTER TABLE " + T + " ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0");
+            db.execSQL("ALTER TABLE " + T + " ADD COLUMN sync_state INTEGER NOT NULL DEFAULT 1");
+            db.execSQL("UPDATE " + T + " SET sync_id=lower(hex(randomblob(16))), updated_at=strftime('%s','now')*1000, sync_state=1 WHERE sync_id IS NULL");
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_id ON " + T + "(sync_id)");
+        }
+    }
 
     public long add(String business, String type, double amount, String category, String note, long date) {
         ContentValues v = new ContentValues();
         v.put("business", business); v.put("type", type); v.put("amount", amount);
-        v.put("category", category); v.put("note", note); v.put("date", date);
+        v.put("category", category); v.put("note", note); v.put("date", date);\n        v.put("sync_id", java.util.UUID.randomUUID().toString()); v.put("updated_at", System.currentTimeMillis()); v.put("sync_state", 1);
         return getWritableDatabase().insertOrThrow(T, null, v);
     }
 
     public void update(Transaction t) {
         ContentValues v = new ContentValues();
-        v.put("amount",t.amount); v.put("category",t.category); v.put("note",t.note); v.put("date",t.date);
+        v.put("amount",t.amount); v.put("category",t.category); v.put("note",t.note); v.put("date",t.date); v.put("updated_at",System.currentTimeMillis()); v.put("sync_state",1);
         if(getWritableDatabase().update(T,v,"id=?",new String[]{String.valueOf(t.id)})!=1)
             throw new IllegalStateException("Kayıt güncellenemedi");
     }
