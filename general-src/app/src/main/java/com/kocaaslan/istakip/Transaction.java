@@ -1,0 +1,21 @@
+package com.kocaaslan.istakip;
+
+public class Transaction {
+    public long id;
+    public String business;
+    public String type;
+    public double amount;
+    public String category;
+    public String note;
+    public long date;
+
+    public Transaction(long id, String business, String type, double amount, String category, String note, long date) {
+        this.id = id;
+        this.business = business;
+        this.type = type;
+        this.amount = amount;
+        this.category = category;
+        this.note = note;
+        this.date = date;
+    }
+}
