@@ -1,0 +1,36 @@
+name: Kocaaslan Source Diagnose
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kaynaklari cikar ve inceleme dosyasi olustur
+        run: |
+          mkdir -p inspection
+          for v in 2 3 4 5 6; do
+            d="inspection/v$v"
+            mkdir -p "$d"
+            unzip -q -o "KocaaslanIsTakip_Android_Proje_v$v.zip" -d "$d"
+            find "$d" -type f | sort > "inspection/v$v-files.txt"
+            find "$d" -type f \( -name '*.java' -o -name '*.kt' -o -name '*.xml' -o -name 'build.gradle' -o -name 'settings.gradle' -o -name 'gradle.properties' -o -name 'AndroidManifest.xml' \) -print0 | sort -z | while IFS= read -r -d '' f; do
+              echo "===== $f ====="
+              cat "$f"
+              echo
+            done > "inspection/v$v-source.txt"
+            rm -rf "$d"
+          done
+      - name: APK olusturmayi dene
+        run: |
+          unzip -q -o KocaaslanIsTakip_Android_Proje_v6.zip -d build-v6
+          cd build-v6
+          chmod +x gradlew 2>/dev/null || true
+          if [ -f gradlew ]; then ./gradlew --no-daemon assembleRelease; else echo "NO_GRADLEW"; exit 1; fi
+      - name: Inceleme dosyalarini kaydet
+        uses: actions/upload-artifact@v4
+        with:
+          name: KocaaslanIsTakip-Diagnose
+          path: inspection
