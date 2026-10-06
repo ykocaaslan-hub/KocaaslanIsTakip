@@ -137,8 +137,18 @@ public class DbHelper extends SQLiteOpenHelper {
         ContentValues v=new ContentValues();
         v.put("business",t.business);v.put("type",t.type);v.put("amount",t.amount);v.put("category",t.category);v.put("note",t.note);v.put("date",t.date);
         v.put("sync_id",t.syncId);v.put("updated_at",t.updatedAt);v.put("sync_state",0);
-        int n=getWritableDatabase().update(T,v,"sync_id=?",new String[]{t.syncId});
-        if(n==0)getWritableDatabase().insertOrThrow(T,null,v);
+        SQLiteDatabase database=getWritableDatabase();
+        int n=database.update(T,v,"sync_id=?",new String[]{t.syncId});
+        if(n==0){
+            // Geri yuklenen yedekte ayni kayit varsa yeni bir kopya eklemek yerine
+            // mevcut kaydi bulut kimligiyle eslestir.
+            Cursor c=database.rawQuery("SELECT id FROM "+T+" WHERE business=? AND type=? AND amount=? AND IFNULL(category,'')=? AND IFNULL(note,'')=? AND date=? LIMIT 1",
+                    new String[]{t.business,t.type,String.valueOf(t.amount),t.category==null?"":t.category,t.note==null?"":t.note,String.valueOf(t.date)});
+            try {
+                if(c.moveToFirst()) database.update(T,v,"id=?",new String[]{String.valueOf(c.getLong(0))});
+                else database.insertOrThrow(T,null,v);
+            } finally { c.close(); }
+        }
     }
 
     public void deleteBySyncId(String syncId) { if(syncId!=null)getWritableDatabase().delete(T,"sync_id=?",new String[]{syncId}); }
