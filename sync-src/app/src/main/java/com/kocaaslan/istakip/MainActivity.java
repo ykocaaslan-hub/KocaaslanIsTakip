@@ -74,8 +74,8 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     }
 
     private void buildUi(){
-        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); scroll.addView(root); setContentView(scroll);
-        scroll.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});scroll.requestApplyInsets();
+        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); setContentView(root);
+        root.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(dp(18),insets.getSystemWindowInsetTop()+dp(16),dp(18),insets.getSystemWindowInsetBottom()+dp(24));return insets;});root.requestApplyInsets();
 
         LinearLayout header=new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(18),dp(15),dp(18),dp(15)); GradientDrawable hg=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xFF123B34,0xFF1A6457}); hg.setCornerRadius(dp(20)); header.setBackground(hg);
         LinearLayout ht=new LinearLayout(this); ht.setOrientation(LinearLayout.VERTICAL); TextView app=txt("Kocaaslan İş Takip",24,Color.WHITE,true); TextView sub=txt("Ciro • Gider • Kâr/Zarar",13,0xFFD2E8E2,false); ht.addView(app);ht.addView(sub);header.addView(ht,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1)); Button settings=button("Ayarlar",0xFFF5A623,0xFF17352F); settings.setOnClickListener(v->settingsDialog());header.addView(settings);root.addView(header,mp(0,0,0,14));
@@ -97,7 +97,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
         LinearLayout acts=new LinearLayout(this);acts.setOrientation(LinearLayout.HORIZONTAL);Button csv=button("CSV / Excel",0xFF294D45,Color.WHITE);Button backup=button("Yedekle",0xFF476D64,Color.WHITE);Button restore=button("Geri Yükle",0xFF6B7C78,Color.WHITE);csv.setOnClickListener(v->beginCsv());backup.setOnClickListener(v->beginBackup());restore.setOnClickListener(v->beginRestore());acts.addView(csv,new LinearLayout.LayoutParams(0,dp(48),1));LinearLayout.LayoutParams al=new LinearLayout.LayoutParams(0,dp(48),1);al.setMargins(dp(6),0,0,0);acts.addView(backup,al);LinearLayout.LayoutParams ar=new LinearLayout.LayoutParams(0,dp(48),1);ar.setMargins(dp(6),0,0,0);acts.addView(restore,ar);root.addView(acts,mp(0,0,0,10));
 
-        list=new ListView(this);list.setDivider(null);list.setDividerHeight(0);list.setNestedScrollingEnabled(false);adapter=new TransactionAdapter(this,this);list.setAdapter(adapter);list.setOnItemClickListener((parent,view,position,id)->showForm(adapter.getItem(position).type,adapter.getItem(position)));root.addView(list,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(520)));
+        list=new ListView(this);list.setDivider(null);list.setDividerHeight(0);list.setNestedScrollingEnabled(false);adapter=new TransactionAdapter(this,this);list.setAdapter(adapter);list.setOnItemClickListener((parent,view,position,id)->showForm(adapter.getItem(position).type,adapter.getItem(position)));LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1f); root.addView(list,listParams);
         search.setText(savedSearch);filter.setSelection(savedFilter);switchBusiness(business);
     }
 
