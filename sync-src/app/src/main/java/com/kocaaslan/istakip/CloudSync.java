@@ -26,13 +26,32 @@ public final class CloudSync {
     }
     public static void delete(String syncId){ if(signedIn()&&syncId!=null) rows().document(syncId).delete(); }
 
+    private static String fingerprint(DocumentSnapshot d){
+        String business=d.getString("business"),type=d.getString("type"),category=d.getString("category"),note=d.getString("note");
+        Double amount=d.getDouble("amount"); Long date=d.getLong("date");
+        return String.valueOf(business)+"|"+String.valueOf(type)+"|"+String.valueOf(amount)+"|"+String.valueOf(category)+"|"+String.valueOf(note)+"|"+String.valueOf(date);
+    }
+
     public static ListenerRegistration listen(DbHelper local, Changed changed){
         if(!signedIn())return null;
         return rows().addSnapshotListener((snap,e)->{
             if(e!=null||snap==null)return;
-            for(DocumentChange dc:snap.getDocumentChanges()){
-                DocumentSnapshot d=dc.getDocument();
-                if(dc.getType()==DocumentChange.Type.REMOVED){ local.deleteBySyncId(d.getId()); continue; }
+
+            // 1.4.2: Bulutta ayni kaydin tekrar tekrar olusmasini temizle.
+            Map<String,DocumentSnapshot> keep=new LinkedHashMap<>();
+            for(DocumentSnapshot d:snap.getDocuments()){
+                String key=fingerprint(d);
+                DocumentSnapshot old=keep.get(key);
+                if(old==null) keep.put(key,d);
+                else {
+                    Long oldUpdated=old.getLong("updatedAt"),newUpdated=d.getLong("updatedAt");
+                    long ou=oldUpdated==null?0:oldUpdated, nu=newUpdated==null?0:newUpdated;
+                    if(nu<ou){ rows().document(old.getId()).delete(); keep.put(key,d); }
+                    else rows().document(d.getId()).delete();
+                }
+            }
+
+            for(DocumentSnapshot d:keep.values()){
                 String business=d.getString("business"),type=d.getString("type"),category=d.getString("category"),note=d.getString("note");
                 Double amount=d.getDouble("amount");Long date=d.getLong("date"),updated=d.getLong("updatedAt");
                 if(business!=null&&type!=null&&amount!=null&&date!=null)
@@ -41,5 +60,7 @@ public final class CloudSync {
             changed.changed();
         });
     }
+
+    // Eski surumlerle uyumluluk icin birakildi; 1.4.2 acilista bunu cagirmiyor.
     public static void uploadAll(DbHelper local){ if(signedIn()) for(Transaction t:local.all()) upload(t); }
 }
