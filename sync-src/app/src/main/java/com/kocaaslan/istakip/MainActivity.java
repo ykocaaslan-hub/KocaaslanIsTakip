@@ -38,7 +38,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     @Override public void onCreate(Bundle b){ super.onCreate(b); db=new DbHelper(this); prefs=getSharedPreferences("settings",MODE_PRIVATE); money=NumberFormat.getCurrencyInstance(new Locale("tr","TR"));
         if(b!=null){business=b.getString("business",B1);savedSearch=b.getString("search","");savedFilter=b.getInt("filter",0);customStart=b.getLong("customStart",0);customEnd=b.getLong("customEnd",0);exportStart=b.getLong("exportStart",0);exportEnd=b.getLong("exportEnd",0);}
-        String pin=prefs.getString("pin",""); if(!CloudSync.signedIn()) promptCloudLogin(pin); else { startCloudSync(); if(pin.isEmpty()) buildUi(); else promptPin(pin); }
+        String pin=prefs.getString("pin",""); buildUi(); try { if(CloudSync.signedIn()) startCloudSync(); else promptCloudLogin(pin); } catch(Exception e) { Toast.makeText(this,"Senkronizasyon şu anda kullanılamıyor; yerel kayıtlarınız korunuyor.",Toast.LENGTH_LONG).show(); }
     }
 
     @Override protected void onSaveInstanceState(Bundle state){
