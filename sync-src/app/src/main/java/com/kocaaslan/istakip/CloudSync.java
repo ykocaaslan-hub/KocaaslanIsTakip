@@ -10,8 +10,8 @@ public final class CloudSync {
     public interface Result { void done(boolean ok, String error); }
     public interface Changed { void changed(); }
 
-    public static boolean signedIn(){ return FirebaseAuth.getInstance().getCurrentUser()!=null; }
-    public static String uid(){ FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser(); return u==null?null:u.getUid(); }
+    public static boolean signedIn(){ try { return FirebaseAuth.getInstance().getCurrentUser()!=null; } catch (Exception e) { return false; } }
+    public static String uid(){ try { FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser(); return u==null?null:u.getUid(); } catch (Exception e) { return null; } }
     public static void signIn(String email,String password,Result cb){
         FirebaseAuth.getInstance().signInWithEmailAndPassword(email,password).addOnCompleteListener(t->cb.done(t.isSuccessful(),t.getException()==null?null:t.getException().getMessage()));
     }
