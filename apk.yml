@@ -36,3 +36,5 @@ jobs:
         with:
           name: KocaaslanIsTakip-1.3.1-APK
           path: build-src/app/build/outputs/apk/release/app-release.apk
+
+# build from tested 1.3.1 sync source
