@@ -1,0 +1,38 @@
+name: Kocaaslan 1.3.1 Clean APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kaynak projeyi hazirla
+        run: |
+          cp -R sync-src/. build-src/
+          cp kocaaslan-release.jks build-src/app/kocaaslan-release.jks
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Android SDK paketlerini kur
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+      - name: APK olustur
+        working-directory: build-src
+        env:
+          KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+      - name: APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KocaaslanIsTakip-1.3.1-Clean
+          path: build-src/app/build/outputs/apk/release/app-release.apk
