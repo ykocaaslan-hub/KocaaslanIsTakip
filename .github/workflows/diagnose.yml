@@ -23,12 +23,6 @@ jobs:
             done > "inspection/v$v-source.txt"
             rm -rf "$d"
           done
-      - name: APK olusturmayi dene
-        run: |
-          unzip -q -o KocaaslanIsTakip_Android_Proje_v6.zip -d build-v6
-          cd build-v6
-          chmod +x gradlew 2>/dev/null || true
-          if [ -f gradlew ]; then ./gradlew --no-daemon assembleRelease; else echo "NO_GRADLEW"; exit 1; fi
       - name: Inceleme dosyalarini kaydet
         uses: actions/upload-artifact@v4
         with:
