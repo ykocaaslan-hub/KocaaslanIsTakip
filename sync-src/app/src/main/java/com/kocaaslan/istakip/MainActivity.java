@@ -28,7 +28,7 @@ import java.util.*;
 public class MainActivity extends Activity implements TransactionAdapter.DeleteListener {
     private static final String B1="Yavuz Kocaaslan", B2="Kocaaslan Kantin";
     private static final int REQ_CSV=1001, REQ_BACKUP=1002, REQ_RESTORE=1003;
-    private DbHelper db; private String business=B1; private LinearLayout root, recordsBox;
+    private DbHelper db; private String business=B1; private int dashboardPeriod=0; private LinearLayout root, recordsBox;
     private TextView titleBusiness, dayIncome,dayExpense,dayNet, weekIncome,weekExpense,weekNet, monthIncome,monthExpense,monthNet, totalIncome,totalExpense,totalNet;
     private Button b1,b2; private EditText search; private Spinner filter; private ChartView chart; private TransactionAdapter adapter; private ListView list;
     private NumberFormat money; private SharedPreferences prefs;
@@ -93,7 +93,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
         titleBusiness=txt(business,1,0xFF031426,false);titleBusiness.setVisibility(View.GONE);root.addView(titleBusiness,new LinearLayout.LayoutParams(1,1));
 
-        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);String[] tabNames={"▣  Bugün","▣  Bu Hafta","▣  Bu Ay","▣  Tümü"};for(int k=0;k<4;k++){final int period=k;Button tb=button(tabNames[k],k==0?0xFFFFD21F:0xFF082846,k==0?0xFF061A33:Color.WHITE);tb.setTextSize(14);tb.setOnClickListener(v->{filter.setSelection(period==3?0:period+1);refresh();});LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(52),1);if(k>0)tp.setMargins(dp(4),0,0,0);tabs.addView(tb,tp);}root.addView(tabs,mp(0,0,0,12));
+        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);String[] tabNames={"▣  Bugün","▣  Bu Hafta","▣  Bu Ay","▣  Tümü"};for(int k=0;k<4;k++){final int period=k;Button tb=button(tabNames[k],k==dashboardPeriod?0xFFFFD21F:0xFF082846,k==dashboardPeriod?0xFF061A33:Color.WHITE);tb.setTextSize(14);tb.setOnClickListener(v->{dashboardPeriod=period;filter.setSelection(period==3?0:period+1);refresh();buildUi();refresh();});LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(52),1);if(k>0)tp.setMargins(dp(4),0,0,0);tabs.addView(tb,tp);}root.addView(tabs,mp(0,0,0,12));
 
         LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);
         dayIncome=summaryCard(stats,"Gelir","₺0",0xFF00D968,"▥");dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF3B4D,"▥");dayNet=summaryCard(stats,"Net","₺0",0xFF1B8CFF,"●");
@@ -210,7 +210,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     private void switchBusiness(String b){business=b;titleBusiness.setText(b);boolean first=B1.equals(b);b1.setBackground(bg(first?0xFF1F9D72:0xFFE6ECE9,14));b1.setTextColor(first?Color.WHITE:0xFF24413B);b2.setBackground(bg(!first?0xFF1F9D72:0xFFE6ECE9,14));b2.setTextColor(!first?Color.WHITE:0xFF24413B);refresh();}
 
-    private void refresh(){ Calendar now=Calendar.getInstance(); long day=startOfDay(now).getTimeInMillis();Calendar d2=(Calendar)startOfDay(now).clone();d2.add(Calendar.DAY_OF_MONTH,1);long dayEnd=d2.getTimeInMillis();Calendar ws=startOfWeek(now);Calendar we=(Calendar)ws.clone();we.add(Calendar.DAY_OF_MONTH,7);Calendar ms=startOfMonth(now);Calendar me=(Calendar)ms.clone();me.add(Calendar.MONTH,1);setStats(db.stats(business,day,dayEnd),dayIncome,dayExpense,dayNet);setStats(db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()),weekIncome,weekExpense,weekNet);setStats(db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()),monthIncome,monthExpense,monthNet);setStats(db.totalStats(business),totalIncome,totalExpense,totalNet);chart.setData(db.lastSixMonths(business));refreshList();}
+    private void refresh(){ Calendar now=Calendar.getInstance(); long day=startOfDay(now).getTimeInMillis();Calendar d2=(Calendar)startOfDay(now).clone();d2.add(Calendar.DAY_OF_MONTH,1);long dayEnd=d2.getTimeInMillis();Calendar ws=startOfWeek(now);Calendar we=(Calendar)ws.clone();we.add(Calendar.DAY_OF_MONTH,7);Calendar ms=startOfMonth(now);Calendar me=(Calendar)ms.clone();me.add(Calendar.MONTH,1);double[] selected=dashboardPeriod==0?db.stats(business,day,dayEnd):dashboardPeriod==1?db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()):dashboardPeriod==2?db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()):db.totalStats(business);setStats(selected,dayIncome,dayExpense,dayNet);setStats(db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()),weekIncome,weekExpense,weekNet);setStats(db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()),monthIncome,monthExpense,monthNet);setStats(db.totalStats(business),totalIncome,totalExpense,totalNet);chart.setData(db.lastSixMonths(business));refreshList();}
     private void setStats(double[] s,TextView i,TextView e,TextView n){i.setText("Gelir  "+money.format(s[0]));e.setText("Gider  "+money.format(s[1]));n.setText("Net  "+money.format(s[2]));n.setTextColor(s[2]>=0?0xFF13835D:0xFFD94A4A);}
     private void refreshList(){if(adapter==null)return;long[] r=filterRange();adapter.setItems(db.list(business,search==null?"":search.getText().toString(),r[0],r[1],0));resizeRecordList();}
 
