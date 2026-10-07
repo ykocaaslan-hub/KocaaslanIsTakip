@@ -11,6 +11,10 @@ public final class CloudSync {
     public interface Result { void done(boolean ok, String error); }
     public interface Changed { void changed(); }
     public interface UploadResult { void done(boolean ok, String error); }
+    public static void reconnect(Result cb){
+        FirebaseFirestore f=FirebaseFirestore.getInstance();
+        f.disableNetwork().continueWithTask(x->f.enableNetwork()).addOnCompleteListener(x->cb.done(x.isSuccessful(),x.getException()==null?null:x.getException().getMessage()));
+    }
 
     public static boolean signedIn(){ try { return FirebaseAuth.getInstance().getCurrentUser()!=null; } catch (Exception e) { return false; } }
     public static String email(){ try { FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser(); return u==null?null:u.getEmail(); } catch(Exception e){ return null; } }
