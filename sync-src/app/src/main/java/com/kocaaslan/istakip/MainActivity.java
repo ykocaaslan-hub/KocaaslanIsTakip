@@ -67,8 +67,11 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     }
     private void syncTransaction(long id){
         Transaction t=db.byId(id);
-        if(t==null){Toast.makeText(this,"Senkron: kayit bulunamadi",Toast.LENGTH_LONG).show();return;}
-        Toast.makeText(this,"Firebase baglantisi yenileniyor",Toast.LENGTH_LONG).show(); CloudSync.reconnect((ready,reconnectErr)->runOnUiThread(()->{ if(!ready){ new AlertDialog.Builder(this).setTitle("BAGLANTI HATASI").setMessage(String.valueOf(reconnectErr)).setPositiveButton("Tamam",null).show(); return; } CloudSync.upload(t,(ok,err)->runOnUiThread(()->{if(ok){startCloudSync();refresh();}new AlertDialog.Builder(this).setTitle(ok?"SENKRON BASARILI":"SENKRON HATASI").setMessage(ok?"Kayit Firebase bulutuna gonderildi ve dinleyici yenilendi.":String.valueOf(err)).setPositiveButton("Tamam",null).show();})); }));
+        if(t==null){Toast.makeText(this,"Senkron: kayıt bulunamadı",Toast.LENGTH_LONG).show();return;}
+        CloudSync.upload(t,(ok,err)->runOnUiThread(()->{
+            if(ok){startCloudSync();refresh();}
+            new AlertDialog.Builder(this).setTitle(ok?"SENKRON BAŞARILI":"SENKRON HATASI").setMessage(ok?"Kayıt Firebase bulutuna gönderildi.":String.valueOf(err)).setPositiveButton("Tamam",null).show();
+        }));
     }
 
     private void promptPin(String expected){
