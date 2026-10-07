@@ -18,13 +18,27 @@ jobs:
       - name: Dosyalari al
         uses: actions/checkout@v4
 
-      - name: Projeyi ac
-        run: unzip -q -o KocaaslanIsTakip_v1.4.2_TelefonFix_Kaynak-2.zip
-
-      - name: 1.4.3 veritabani uyumluluk duzeltmesi
+      - name: 1.4.4 senkronizasyonlu kaynak
         run: |
-          sed -i 's/private static final int DB_VERSION = 1;/private static final int DB_VERSION = 2;/' app/src/main/java/com/kocaaslan/istakip/DbHelper.java
-          grep 'DB_VERSION = 2' app/src/main/java/com/kocaaslan/istakip/DbHelper.java
+          cp -R sync-src app
+          sed -i "s/versionCode 102/versionCode 104/" app/build.gradle
+          sed -i "s/versionName '1.4.2'/versionName '1.4.4'/" app/build.gradle
+
+      - name: 1.4.4 telefon tam kaydirma duzeltmesi
+        run: |
+          python3 - <<'PY'
+          p='app/src/main/java/com/kocaaslan/istakip/MainActivity.java'
+          s=open(p,encoding='utf-8').read()
+          old='''root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); setContentView(root);'''
+          new='''root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); ScrollView mainScroll=new ScrollView(this); mainScroll.setFillViewport(true); mainScroll.addView(root,new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT)); setContentView(mainScroll);'''
+          if old not in s: raise SystemExit('root pattern bulunamadi')
+          s=s.replace(old,new,1)
+          old2='''LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1f); root.addView(list,listParams);'''
+          new2='''list.setOnTouchListener((v,e)->{v.getParent().requestDisallowInterceptTouchEvent(true);return false;}); LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(420)); root.addView(list,listParams);'''
+          if old2 not in s: raise SystemExit('list pattern bulunamadi')
+          s=s.replace(old2,new2,1)
+          open(p,'w',encoding='utf-8').write(s)
+          PY
 
       - name: Imzalama dosyasini yerlestir
         run: cp kocaaslan-release.jks app/kocaaslan-release.jks
@@ -56,5 +70,5 @@ jobs:
       - name: APK dosyasini kaydet
         uses: actions/upload-artifact@v4
         with:
-          name: KocaaslanIsTakip-1.4.3-TelefonFix-DB-Uyumlu-APK
+          name: KocaaslanIsTakip-1.4.4-Telefon-Senkron-APK
           path: app/build/outputs/apk/release/app-release.apk
