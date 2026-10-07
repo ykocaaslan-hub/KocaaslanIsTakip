@@ -84,6 +84,17 @@ public class DbHelper extends SQLiteOpenHelper {
         return new double[]{income, expense, income - expense};
     }
 
+    public double expenseSum(String business,long start,long end) {
+        double total=0;
+        String sql="SELECT COALESCE(SUM(amount),0) FROM "+T+" WHERE business=? AND type=?";
+        List<String> args=new ArrayList<>(); args.add(business); args.add("Gider");
+        if(start>0){sql+=" AND date>=?";args.add(String.valueOf(start));}
+        if(end>0){sql+=" AND date<?";args.add(String.valueOf(end));}
+        Cursor c=getReadableDatabase().rawQuery(sql,args.toArray(new String[0]));
+        try{if(c.moveToFirst())total=c.getDouble(0);}finally{c.close();}
+        return total;
+    }
+
     public double[] totalStats(String business) {
         double income = 0, expense = 0;
         Cursor c = getReadableDatabase().rawQuery(
