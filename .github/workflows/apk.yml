@@ -21,13 +21,13 @@ jobs:
       - name: 1.4.4 senkronizasyonlu kaynak
         run: |
           cp -R sync-src app
-          sed -i "s/versionCode 102/versionCode 104/" app/build.gradle
-          sed -i "s/versionName '1.4.2'/versionName '1.4.4'/" app/build.gradle
+          sed -i "s/versionCode 102/versionCode 104/" app/app/build.gradle
+          sed -i "s/versionName '1.4.2'/versionName '1.4.4'/" app/app/build.gradle
 
       - name: 1.4.4 telefon tam kaydirma duzeltmesi
         run: |
           python3 - <<'PY'
-          p='app/src/main/java/com/kocaaslan/istakip/MainActivity.java'
+          p='app/app/src/main/java/com/kocaaslan/istakip/MainActivity.java'
           s=open(p,encoding='utf-8').read()
           old='''root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); setContentView(root);'''
           new='''root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); ScrollView mainScroll=new ScrollView(this); mainScroll.setFillViewport(true); mainScroll.addView(root,new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT)); setContentView(mainScroll);'''
@@ -41,7 +41,7 @@ jobs:
           PY
 
       - name: Imzalama dosyasini yerlestir
-        run: cp kocaaslan-release.jks app/kocaaslan-release.jks
+        run: cp kocaaslan-release.jks app/app/kocaaslan-release.jks
 
       - name: Java 17 kur
         uses: actions/setup-java@v5
@@ -65,10 +65,10 @@ jobs:
       - name: APK olustur
         env:
           KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
-        run: gradle --no-daemon :app:assembleRelease
+        run: cd app && gradle --no-daemon :app:assembleRelease
 
       - name: APK dosyasini kaydet
         uses: actions/upload-artifact@v4
         with:
           name: KocaaslanIsTakip-1.4.4-Telefon-Senkron-APK
-          path: app/build/outputs/apk/release/app-release.apk
+          path: app/app/build/outputs/apk/release/app-release.apk
