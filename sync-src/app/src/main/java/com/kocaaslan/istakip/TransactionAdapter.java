@@ -29,12 +29,12 @@ public class TransactionAdapter extends BaseAdapter {
     @Override public View getView(int pos, View convertView, ViewGroup parent){
         final Transaction t=getItem(pos);
         LinearLayout row=new LinearLayout(ctx); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(dp(14),dp(10),dp(10),dp(10));
-        GradientDrawable bg=new GradientDrawable(); bg.setColor(0xFFFFFFFF); bg.setCornerRadius(dp(12)); bg.setStroke(dp(1),0xFFE5ECE9); row.setBackground(bg);
+        GradientDrawable bg=new GradientDrawable(); bg.setColor(0xFF0A2748); bg.setCornerRadius(dp(14)); bg.setStroke(dp(1),0xFF2B5E8D); row.setBackground(bg); row.setElevation(dp(5));
         LinearLayout text=new LinearLayout(ctx); text.setOrientation(LinearLayout.VERTICAL); text.setPadding(0,0,dp(8),0);
-        TextView title=new TextView(ctx); title.setText(("Gelir".equals(t.type)?"▲ ":"▼ ")+t.category+(t.note==null||t.note.trim().isEmpty()?"":" · "+t.note)); title.setTextSize(15); title.setTypeface(Typeface.DEFAULT,Typeface.BOLD); title.setTextColor(0xFF173C35);
-        TextView date=new TextView(ctx); date.setText(new SimpleDateFormat("dd MMM yyyy",new Locale("tr","TR")).format(new Date(t.date))); date.setTextColor(0xFF6D7D79); date.setTextSize(12);
+        TextView title=new TextView(ctx); title.setText(("Gelir".equals(t.type)?"▲ ":"▼ ")+t.category+(t.note==null||t.note.trim().isEmpty()?"":" · "+t.note)); title.setTextSize(15); title.setTypeface(Typeface.DEFAULT,Typeface.BOLD); title.setTextColor(0xFFFFFFFF);
+        TextView date=new TextView(ctx); date.setText(new SimpleDateFormat("dd MMM yyyy",new Locale("tr","TR")).format(new Date(t.date))); date.setTextColor(0xFF9FB4C8); date.setTextSize(12);
         text.addView(title); text.addView(date); row.addView(text,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        TextView amt=new TextView(ctx); amt.setText(("Gelir".equals(t.type)?"+ ":"- ")+money.format(t.amount)); amt.setTextSize(16); amt.setTypeface(Typeface.DEFAULT,Typeface.BOLD); amt.setTextColor("Gelir".equals(t.type)?0xFF13835D:0xFFD94A4A); row.addView(amt);
+        TextView amt=new TextView(ctx); amt.setText(("Gelir".equals(t.type)?"+ ":"- ")+money.format(t.amount)); amt.setTextSize(16); amt.setTypeface(Typeface.DEFAULT,Typeface.BOLD); amt.setTextColor("Gelir".equals(t.type)?0xFF3EEA83:0xFFFF5B63); row.addView(amt);
         Button del=new Button(ctx); del.setText("Sil"); del.setTextSize(12); del.setMinWidth(0); del.setMinimumWidth(0); del.setPadding(dp(10),0,dp(10),0); del.setOnClickListener(v->listener.onDelete(t)); row.addView(del,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,dp(42)));
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT); lp.setMargins(0,dp(5),0,dp(5)); row.setLayoutParams(lp); return row;
     }
