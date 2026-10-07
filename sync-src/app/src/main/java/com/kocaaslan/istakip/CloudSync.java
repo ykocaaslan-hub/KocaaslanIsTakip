@@ -24,6 +24,23 @@ public final class CloudSync {
         FirebaseAuth.getInstance().signInWithEmailAndPassword(email,password).addOnCompleteListener(t->cb.done(t.isSuccessful(),t.getException()==null?null:t.getException().getMessage()));
     }
     public static void signOut(){ FirebaseAuth.getInstance().signOut(); }
+    public static void diagnose(Result cb){
+        if(!signedIn()){ cb.done(false,"AUTH: Firebase oturumu yok"); return; }
+        String u=uid(), p=projectId(), e=email();
+        FirebaseFirestore fs=FirebaseFirestore.getInstance();
+        DocumentReference ref=fs.collection("kullanicilar").document(u).collection("tanilama").document("baglanti");
+        Map<String,Object> m=new HashMap<>(); m.put("test",true); m.put("time",System.currentTimeMillis());
+        final boolean[] finished={false};
+        ref.set(m).continueWithTask(t->{ if(!t.isSuccessful()) throw t.getException(); return ref.get(Source.SERVER); }).addOnCompleteListener(t->{
+            if(finished[0])return; finished[0]=true;
+            if(t.isSuccessful()) cb.done(true,"AUTH OK\\nPROJE: "+p+"\\nE-POSTA: "+e+"\\nUID: "+u+"\\nFIRESTORE YAZ/OKU: OK");
+            else cb.done(false,"AUTH OK\\nPROJE: "+p+"\\nUID: "+u+"\\nFIRESTORE: "+t.getException().getClass().getSimpleName()+": "+t.getException().getMessage());
+        });
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{
+            if(!finished[0]){finished[0]=true;cb.done(false,"AUTH OK\\nPROJE: "+p+"\\nUID: "+u+"\\nFIRESTORE: 20 saniyede sunucu yaniti yok");}
+        },20000);
+    }
+
     private static CollectionReference rows(){ return FirebaseFirestore.getInstance().collection("kullanicilar").document(uid()).collection("işlemler"); }
 
     public static void upload(Transaction t){ upload(t,null); }
