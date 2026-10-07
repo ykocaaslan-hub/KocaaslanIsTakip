@@ -15,11 +15,11 @@ jobs:
       - name: Dosyalari al
         uses: actions/checkout@v4
 
-      - name: 1.5.2 kaynak hazirla
+      - name: 1.5.3 kaynak hazirla
         run: |
           cp -R sync-src app
-          sed -i "s/versionCode 102/versionCode 112/" app/app/build.gradle
-          sed -i "s/versionName '1.4.2'/versionName '1.5.2'/" app/app/build.gradle
+          sed -i "s/versionCode 102/versionCode 113/" app/app/build.gradle
+          sed -i "s/versionName '1.4.2'/versionName '1.5.3'/" app/app/build.gradle
           python3 scripts/patch145.py
 
       - name: Imzalama dosyasini yerlestir
@@ -49,5 +49,5 @@ jobs:
       - name: APK dosyasini kaydet
         uses: actions/upload-artifact@v4
         with:
-          name: KocaaslanIsTakip-1.5.2-CiftYonlu-Senkron-APK
+          name: KocaaslanIsTakip-1.5.3-CiftYonlu-Senkron-APK
           path: app/app/build/outputs/apk/release/app-release.apk
