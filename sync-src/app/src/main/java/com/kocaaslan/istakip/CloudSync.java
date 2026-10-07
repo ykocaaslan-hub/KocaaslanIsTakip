@@ -24,7 +24,7 @@ public final class CloudSync {
         FirebaseAuth.getInstance().signInWithEmailAndPassword(email,password).addOnCompleteListener(t->cb.done(t.isSuccessful(),t.getException()==null?null:t.getException().getMessage()));
     }
     public static void signOut(){ FirebaseAuth.getInstance().signOut(); }
-    private static CollectionReference rows(){ return FirebaseFirestore.getInstance().collection("users").document(uid()).collection("transactions"); }
+    private static CollectionReference rows(){ return FirebaseFirestore.getInstance().collection("kullanicilar").document(uid()).collection("işlemler"); }
 
     public static void upload(Transaction t){ upload(t,null); }
     public static void upload(Transaction t, UploadResult cb){
