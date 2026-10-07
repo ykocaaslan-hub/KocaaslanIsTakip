@@ -93,7 +93,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
         titleBusiness=txt(business,1,0xFF031426,false);titleBusiness.setVisibility(View.GONE);root.addView(titleBusiness,new LinearLayout.LayoutParams(1,1));
 
-        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);String[] tabNames={"▣  Bugün","▣  Bu Hafta","▣  Bu Ay","▣  Tümü"};for(int k=0;k<4;k++){Button tb=button(tabNames[k],k==0?0xFFFFD21F:0xFF082846,k==0?0xFF061A33:Color.WHITE);tb.setTextSize(14);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(52),1);if(k>0)tp.setMargins(dp(4),0,0,0);tabs.addView(tb,tp);}root.addView(tabs,mp(0,0,0,12));
+        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);String[] tabNames={"▣  Bugün","▣  Bu Hafta","▣  Bu Ay","▣  Tümü"};for(int k=0;k<4;k++){final int period=k;Button tb=button(tabNames[k],k==0?0xFFFFD21F:0xFF082846,k==0?0xFF061A33:Color.WHITE);tb.setTextSize(14);tb.setOnClickListener(v->{filter.setSelection(period==3?0:period+1);refresh();});LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(52),1);if(k>0)tp.setMargins(dp(4),0,0,0);tabs.addView(tb,tp);}root.addView(tabs,mp(0,0,0,12));
 
         LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);
         dayIncome=summaryCard(stats,"Gelir","₺0",0xFF00D968,"▥");dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF3B4D,"▥");dayNet=summaryCard(stats,"Net","₺0",0xFF1B8CFF,"●");
@@ -217,7 +217,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void resizeRecordList(){
         if(list==null||adapter==null)return;
         int count=adapter.getCount();
-        int wanted=Math.max(dp(180),count*dp(86)+dp(20));
+        int wanted=Math.max(dp(180),count*dp(104)+dp(40));
         ViewGroup.LayoutParams p=list.getLayoutParams();
         if(p!=null){p.height=wanted;list.setLayoutParams(p);}
         list.setNestedScrollingEnabled(false);
@@ -229,7 +229,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{Transaction local=db.byId(t.id);if(local!=null)CloudSync.delete(local.syncId);db.delete(t.id);refresh();}).show();}
 
-    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v1.5.7").setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
+    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v1.5.8").setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
     private void showSyncInfo(){
         String project=CloudSync.projectId(), email=CloudSync.email(), uid=CloudSync.uid();
         String msg="Durum: "+(CloudSync.signedIn()?"GİRİŞ YAPILMIŞ":"GİRİŞ YOK")+"\n\nFirebase Projesi: "+String.valueOf(project)+"\nE-posta: "+String.valueOf(email)+"\nUID: "+String.valueOf(uid);
