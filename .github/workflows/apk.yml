@@ -46,8 +46,7 @@ jobs:
           p='app/app/src/main/java/com/kocaaslan/istakip/MainActivity.java'
           s=open(p,encoding='utf-8').read()
           old='''syncListener=CloudSync.listen(db,()->runOnUiThread(()->{if(adapter!=null)refresh();}));'''
-          new='''syncListener=CloudSync.listen(db,()->runOnUiThread(()->{if(adapter!=null)refresh();}));
-            for(Transaction t:db.pendingSync()) CloudSync.upload(t);'''
+          new='''syncListener=CloudSync.listen(db,()->runOnUiThread(()->{if(adapter!=null)refresh();})); for(Transaction t:db.pendingSync()) CloudSync.upload(t);'''
           if old not in s: raise SystemExit('sync listener pattern bulunamadi')
           s=s.replace(old,new,1)
           open(p,'w',encoding='utf-8').write(s)
