@@ -3,6 +3,7 @@ package com.kocaaslan.istakip;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.*;
+import com.google.firebase.FirebaseApp;
 import java.util.*;
 
 public final class CloudSync {
@@ -12,6 +13,8 @@ public final class CloudSync {
     public interface UploadResult { void done(boolean ok, String error); }
 
     public static boolean signedIn(){ try { return FirebaseAuth.getInstance().getCurrentUser()!=null; } catch (Exception e) { return false; } }
+    public static String email(){ try { FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser(); return u==null?null:u.getEmail(); } catch(Exception e){ return null; } }
+    public static String projectId(){ try { return FirebaseApp.getInstance().getOptions().getProjectId(); } catch(Exception e){ return null; } }
     public static String uid(){ try { FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser(); return u==null?null:u.getUid(); } catch (Exception e) { return null; } }
     public static void signIn(String email,String password,Result cb){
         FirebaseAuth.getInstance().signInWithEmailAndPassword(email,password).addOnCompleteListener(t->cb.done(t.isSuccessful(),t.getException()==null?null:t.getException().getMessage()));
