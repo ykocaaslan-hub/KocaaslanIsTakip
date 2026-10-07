@@ -3,71 +3,24 @@ name: Kocaaslan Is Takip APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-
     steps:
       - name: Dosyalari al
         uses: actions/checkout@v4
 
-      - name: 1.4.5 senkronizasyonlu kaynak
+      - name: 1.4.5 kaynak hazirla
         run: |
           cp -R sync-src app
           sed -i "s/versionCode 102/versionCode 105/" app/app/build.gradle
           sed -i "s/versionName '1.4.2'/versionName '1.4.5'/" app/app/build.gradle
-
-      - name: 1.4.5 telefon tam kaydirma duzeltmesi
-        run: |
-          python3 - <<'PY'
-          p='app/app/src/main/java/com/kocaaslan/istakip/MainActivity.java'
-          s=open(p,encoding='utf-8').read()
-          old='''root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); setContentView(root);'''
-          new='''root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(16),dp(18),dp(24)); root.setBackgroundColor(0xFFF4F8F6); ScrollView mainScroll=new ScrollView(this); mainScroll.setFillViewport(true); mainScroll.addView(root,new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT)); setContentView(mainScroll);'''
-          if old not in s: raise SystemExit('root pattern bulunamadi')
-          s=s.replace(old,new,1)
-          old2='''LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1f); root.addView(list,listParams);'''
-          new2='''list.setOnTouchListener((v,e)->{v.getParent().requestDisallowInterceptTouchEvent(true);return false;}); LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(420)); root.addView(list,listParams);'''
-          if old2 not in s: raise SystemExit('list pattern bulunamadi')
-          s=s.replace(old2,new2,1)
-          open(p,'w',encoding='utf-8').write(s)
-          PY
-
-      - name: 1.4.5 bekleyen yerel kayitlari buluta gonder
-        run: |
-          python3 - <<'PY'
-          p='app/app/src/main/java/com/kocaaslan/istakip/MainActivity.java'
-          s=open(p,encoding='utf-8').read()
-          old='''syncListener=CloudSync.listen(db,()->runOnUiThread(()->{if(adapter!=null)refresh();}));'''
-          new='''syncListener=CloudSync.listen(db,()->runOnUiThread(()->{if(adapter!=null)refresh();})); for(Transaction t:db.pendingSync()) CloudSync.upload(t);'''
-          if old not in s: raise SystemExit('sync listener pattern bulunamadi')
-          s=s.replace(old,new,1)
-          open(p,'w',encoding='utf-8').write(s)
-          PY
-          python3 - <<'PY'
-          p='app/app/src/main/java/com/kocaaslan/istakip/DbHelper.java'
-          s=open(p,encoding='utf-8').read()
-          marker='''    public Transaction byId(long id) {'''
-          method='''    public List<Transaction> pendingSync() {
-        List<Transaction> out=new ArrayList<>();
-        Cursor c=getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM "+T+" WHERE sync_state=1 ORDER BY id",null);
-        try { while(c.moveToNext()) out.add(new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getDouble(3),c.getString(4),c.getString(5),c.getLong(6),c.getString(7),c.getLong(8))); }
-        finally { c.close(); }
-        return out;
-    }
-
-'''
-          if marker not in s: raise SystemExit('byId marker bulunamadi')
-          s=s.replace(marker,method+marker,1)
-          open(p,'w',encoding='utf-8').write(s)
-          PY
+          python3 scripts/patch145.py
 
       - name: Imzalama dosyasini yerlestir
         run: cp kocaaslan-release.jks app/app/kocaaslan-release.jks
@@ -86,10 +39,7 @@ jobs:
       - name: Android SDK paketlerini kur
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;35.0.0"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
       - name: APK olustur
         env:
