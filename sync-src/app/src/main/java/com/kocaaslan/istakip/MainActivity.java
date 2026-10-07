@@ -65,7 +65,11 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         if(syncListener!=null)syncListener.remove();
         syncListener=CloudSync.listen(db,()->runOnUiThread(()->{if(adapter!=null)refresh();}));
     }
-    private void syncTransaction(long id){ Transaction t=db.byId(id); if(t!=null)CloudSync.upload(t); }
+    private void syncTransaction(long id){
+        Transaction t=db.byId(id);
+        if(t==null){Toast.makeText(this,"Senkron: kayit bulunamadi",Toast.LENGTH_LONG).show();return;}
+        CloudSync.upload(t,(ok,err)->runOnUiThread(()->Toast.makeText(this,ok?"Senkron: buluta gonderildi":"Senkron HATASI: "+err,Toast.LENGTH_LONG).show()));
+    }
 
     private void promptPin(String expected){
         final EditText in=new EditText(this); in.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD); in.setHint("4 haneli PIN"); in.setPadding(dp(18),dp(12),dp(18),dp(12));
