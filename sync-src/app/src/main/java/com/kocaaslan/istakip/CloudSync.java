@@ -28,7 +28,9 @@ public final class CloudSync {
         if(t==null||t.syncId==null){ if(cb!=null)cb.done(false,"Kayit kimligi yok"); return; }
         Map<String,Object> m=new HashMap<>();
         m.put("business",t.business);m.put("type",t.type);m.put("amount",t.amount);m.put("category",t.category);m.put("note",t.note);m.put("date",t.date);m.put("updatedAt",t.updatedAt);
-        rows().document(t.syncId).set(m).addOnCompleteListener(x->{ if(cb!=null)cb.done(x.isSuccessful(),x.getException()==null?null:x.getException().getMessage()); });
+        final boolean[] finished={false};
+        rows().document(t.syncId).set(m).addOnCompleteListener(x->{ finished[0]=true; if(cb!=null)cb.done(x.isSuccessful(),x.getException()==null?null:(x.getException().getClass().getSimpleName()+": "+x.getException().getMessage())); });
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{ if(!finished[0]&&cb!=null)cb.done(false,"30 saniye içinde Firebase yanıt vermedi. Ağ/Firestore bağlantısı beklemede."); },30000);
     }
     public static void delete(String syncId){ if(signedIn()&&syncId!=null) rows().document(syncId).delete(); }
 
