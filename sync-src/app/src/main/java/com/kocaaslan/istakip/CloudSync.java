@@ -4,16 +4,26 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.*;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import java.util.*;
 
 public final class CloudSync {
+    private static boolean configured=false;
     private CloudSync() {}
+    private static synchronized FirebaseFirestore fs(){
+        FirebaseFirestore f=FirebaseFirestore.getInstance();
+        if(!configured){
+            try{ FirebaseFirestoreSettings st=new FirebaseFirestoreSettings.Builder().setPersistenceEnabled(false).build(); f.setFirestoreSettings(st); }catch(Exception ignored){}
+            configured=true;
+        }
+        return f;
+    }
     public interface Result { void done(boolean ok, String error); }
     public interface Changed { void changed(); }
     public interface UploadResult { void done(boolean ok, String error); }
     public static void reconnect(Result cb){
         FirebaseFirestore f=FirebaseFirestore.getInstance();
-        f.disableNetwork().continueWithTask(x->f.enableNetwork()).addOnCompleteListener(x->cb.done(x.isSuccessful(),x.getException()==null?null:x.getException().getMessage()));
+        f.terminate().addOnCompleteListener(x->{configured=false;FirebaseFirestore fresh=fs();fresh.enableNetwork().addOnCompleteListener(y->cb.done(y.isSuccessful(),y.getException()==null?null:y.getException().getMessage()));});
     }
 
     public static boolean signedIn(){ try { return FirebaseAuth.getInstance().getCurrentUser()!=null; } catch (Exception e) { return false; } }
