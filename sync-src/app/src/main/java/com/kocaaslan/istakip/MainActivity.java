@@ -100,7 +100,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         weekIncome=txt("",1,Color.TRANSPARENT,false);weekExpense=txt("",1,Color.TRANSPARENT,false);weekNet=txt("",1,Color.TRANSPARENT,false);monthIncome=txt("",1,Color.TRANSPARENT,false);monthExpense=txt("",1,Color.TRANSPARENT,false);monthNet=txt("",1,Color.TRANSPARENT,false);
         root.addView(stats,mp(0,0,0,12));
 
-        LinearLayout quick=new LinearLayout(this);quick.setOrientation(LinearLayout.HORIZONTAL);Button addI=button("＋   GELİR EKLE\n     Para girişi kaydet",0xFF009D50,Color.WHITE);Button addE=button("＋   GİDER EKLE\n     Para çıkışı kaydet",0xFFD51E2B,Color.WHITE);addI.setTextSize(17);addE.setTextSize(17);addI.setOnClickListener(v->showAdd("Gelir"));addE.setOnClickListener(v->showAdd("Gider"));quick.addView(addI,new LinearLayout.LayoutParams(0,dp(78),1));LinearLayout.LayoutParams qe=new LinearLayout.LayoutParams(0,dp(78),1);qe.setMargins(dp(10),0,0,0);quick.addView(addE,qe);root.addView(quick,mp(0,0,0,12));
+        LinearLayout quick=new LinearLayout(this);quick.setOrientation(LinearLayout.HORIZONTAL);Button addI=button("＋   GELİR EKLE\n     Para girişi kaydet",0xFF009D50,Color.WHITE);Button addE=button("＋   GİDER EKLE\n     Para çıkışı kaydet",0xFFD51E2B,Color.WHITE);addI.setTextSize(17);addE.setTextSize(17);addI.setOnClickListener(v->showAdd("Gelir"));addE.setOnClickListener(v->showAdd("Gider"));quick.addView(addI,new LinearLayout.LayoutParams(0,dp(96),1));LinearLayout.LayoutParams qe=new LinearLayout.LayoutParams(0,dp(96),1);qe.setMargins(dp(10),0,0,0);quick.addView(addE,qe);root.addView(quick,mp(0,0,0,12));
 
         LinearLayout total= (LinearLayout)totalCard(); total.setVisibility(View.GONE); root.addView(total,new LinearLayout.LayoutParams(1,1));
         Button monthlyHistory=button("Detay Gör  ›",0xFF0B2C50,Color.WHITE);monthlyHistory.setOnClickListener(v->showMonthlyHistory());
@@ -125,7 +125,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     private TextView summaryCard(LinearLayout parent,String label,String value,int accent,String icon){
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(16),dp(12),dp(16),dp(12));GradientDrawable g=bg(0xFF092B4D,18);g.setStroke(dp(2),accent);card.setBackground(g);card.setElevation(dp(9));
-        TextView l=txt(icon+"  "+label,16,Color.WHITE,true);TextView v=txt(value,23,accent,true);card.addView(l);card.addView(v);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(100),1);if(parent.getChildCount()>0)lp.setMargins(dp(10),0,0,0);parent.addView(card,lp);return v;
+        TextView l=txt(icon+"  "+label,16,Color.WHITE,true);TextView v=txt(value,23,accent,true);card.addView(l);card.addView(v);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(112),1);if(parent.getChildCount()>0)lp.setMargins(dp(10),0,0,0);parent.addView(card,lp);return v;
     }
 
     private View periodCard(String label,int which){ LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(13),dp(13),dp(13),dp(13));box.setBackground(cardBg(0xFF0A2748));box.setElevation(dp(7));TextView l=txt(label,12,0xFFFFD21F,true);box.addView(l);TextView i=txt("Gelir 0",13,0xFF3EEA83,true),e=txt("Gider 0",13,0xFFFF5B63,true),n=txt("Net 0",17,0xFF4DB5FF,true);box.addView(i);box.addView(e);box.addView(n);if(which==0){dayIncome=i;dayExpense=e;dayNet=n;}else if(which==1){weekIncome=i;weekExpense=e;weekNet=n;}else{monthIncome=i;monthExpense=e;monthNet=n;}return box; }
@@ -217,10 +217,10 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void resizeRecordList(){
         if(list==null||adapter==null)return;
         int count=adapter.getCount();
-        int row=dp(68);
-        int wanted=Math.max(dp(180),Math.min(dp(680),count*row+dp(12)));
+        int wanted=Math.max(dp(180),count*dp(86)+dp(20));
         ViewGroup.LayoutParams p=list.getLayoutParams();
         if(p!=null){p.height=wanted;list.setLayoutParams(p);}
+        list.setNestedScrollingEnabled(false);
     }
     private long[] filterRange(){int p=filter==null?0:filter.getSelectedItemPosition();Calendar now=Calendar.getInstance();if(p==4)return new long[]{customStart,customEnd};if(p==1){Calendar s=startOfDay(now),e=(Calendar)s.clone();e.add(Calendar.DAY_OF_MONTH,1);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}if(p==2){Calendar s=startOfWeek(now),e=(Calendar)s.clone();e.add(Calendar.DAY_OF_MONTH,7);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}if(p==3){Calendar s=startOfMonth(now),e=(Calendar)s.clone();e.add(Calendar.MONTH,1);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}return new long[]{0,0};}
 
@@ -229,7 +229,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{Transaction local=db.byId(t.id);if(local!=null)CloudSync.delete(local.syncId);db.delete(t.id);refresh();}).show();}
 
-    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v1.5.6").setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
+    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v1.5.7").setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
     private void showSyncInfo(){
         String project=CloudSync.projectId(), email=CloudSync.email(), uid=CloudSync.uid();
         String msg="Durum: "+(CloudSync.signedIn()?"GİRİŞ YAPILMIŞ":"GİRİŞ YOK")+"\n\nFirebase Projesi: "+String.valueOf(project)+"\nE-posta: "+String.valueOf(email)+"\nUID: "+String.valueOf(uid);
