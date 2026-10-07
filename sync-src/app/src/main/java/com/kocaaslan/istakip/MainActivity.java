@@ -68,7 +68,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void syncTransaction(long id){
         Transaction t=db.byId(id);
         if(t==null){Toast.makeText(this,"Senkron: kayit bulunamadi",Toast.LENGTH_LONG).show();return;}
-        CloudSync.upload(t,(ok,err)->runOnUiThread(()->Toast.makeText(this,ok?"Senkron: buluta gonderildi":"Senkron HATASI: "+err,Toast.LENGTH_LONG).show()));
+        Toast.makeText(this,"Senkron testi basladi",Toast.LENGTH_LONG).show(); CloudSync.upload(t,(ok,err)->runOnUiThread(()->new AlertDialog.Builder(this).setTitle(ok?"SENKRON BASARILI":"SENKRON HATASI").setMessage(ok?"Kayit Firebase bulutuna gonderildi.":String.valueOf(err)).setPositiveButton("Tamam",null).show()));
     }
 
     private void promptPin(String expected){
