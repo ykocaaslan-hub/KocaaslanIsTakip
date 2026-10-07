@@ -23,7 +23,7 @@ public final class CloudSync {
     public interface UploadResult { void done(boolean ok, String error); }
     public static void reconnect(Result cb){
         FirebaseFirestore f=FirebaseFirestore.getInstance();
-        f.terminate().addOnCompleteListener(x->{configured=false;FirebaseFirestore fresh=fs();fresh.enableNetwork().addOnCompleteListener(y->cb.done(y.isSuccessful(),y.getException()==null?null:y.getException().getMessage()));});
+        f.enableNetwork().addOnCompleteListener(y->cb.done(y.isSuccessful(),y.getException()==null?null:y.getException().getMessage()));
     }
 
     public static boolean signedIn(){ try { return FirebaseAuth.getInstance().getCurrentUser()!=null; } catch (Exception e) { return false; } }
