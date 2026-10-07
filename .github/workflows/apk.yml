@@ -21,6 +21,11 @@ jobs:
       - name: Projeyi ac
         run: unzip -q -o KocaaslanIsTakip_v1.4.2_TelefonFix_Kaynak-2.zip
 
+      - name: 1.4.3 veritabani uyumluluk duzeltmesi
+        run: |
+          sed -i 's/private static final int DB_VERSION = 1;/private static final int DB_VERSION = 2;/' app/src/main/java/com/kocaaslan/istakip/DbHelper.java
+          grep 'DB_VERSION = 2' app/src/main/java/com/kocaaslan/istakip/DbHelper.java
+
       - name: Imzalama dosyasini yerlestir
         run: cp kocaaslan-release.jks app/kocaaslan-release.jks
 
@@ -51,5 +56,5 @@ jobs:
       - name: APK dosyasini kaydet
         uses: actions/upload-artifact@v4
         with:
-          name: KocaaslanIsTakip-1.4.2-TelefonFix-APK
+          name: KocaaslanIsTakip-1.4.3-TelefonFix-DB-Uyumlu-APK
           path: app/build/outputs/apk/release/app-release.apk
