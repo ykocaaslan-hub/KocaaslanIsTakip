@@ -84,7 +84,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(16),dp(12),dp(16),dp(12));GradientDrawable hg=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xFF06213D,0xFF0B3764});hg.setCornerRadius(dp(22));header.setBackground(hg);header.setElevation(dp(10));
         TextView menu=txt("☰",30,Color.WHITE,true);header.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(52)));
         LinearLayout htxt=new LinearLayout(this);htxt.setOrientation(LinearLayout.VERTICAL);htxt.addView(txt("▮▮  Kocaaslan İş Takip",25,0xFFFFD21F,true));htxt.addView(txt("“Daima Fenerbahçe”",16,0xFFFFD21F,true));header.addView(htxt,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        TextView ata=txt("ATATÜRK",15,Color.WHITE,true);ata.setGravity(Gravity.CENTER);header.addView(ata,new LinearLayout.LayoutParams(dp(82),dp(52)));menu.setOnClickListener(v->settingsDialog());root.addView(header,mp(0,0,0,12));
+        TextView ata=txt("★  1907",16,0xFFFFD21F,true);ata.setGravity(Gravity.CENTER);header.addView(ata,new LinearLayout.LayoutParams(dp(82),dp(52)));menu.setOnClickListener(v->settingsDialog());root.addView(header,mp(0,0,0,12));
 
         LinearLayout businesses=new LinearLayout(this);businesses.setOrientation(LinearLayout.HORIZONTAL);
         b1=button("♛  YK   Yavuz Kocaaslan\n      1. İşletme",0xFF0B2C50,Color.WHITE);b2=button("▣  KK   Kocaaslan Kantin\n      2. İşletme",0xFF0B2C50,Color.WHITE);
@@ -212,7 +212,16 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     private void refresh(){ Calendar now=Calendar.getInstance(); long day=startOfDay(now).getTimeInMillis();Calendar d2=(Calendar)startOfDay(now).clone();d2.add(Calendar.DAY_OF_MONTH,1);long dayEnd=d2.getTimeInMillis();Calendar ws=startOfWeek(now);Calendar we=(Calendar)ws.clone();we.add(Calendar.DAY_OF_MONTH,7);Calendar ms=startOfMonth(now);Calendar me=(Calendar)ms.clone();me.add(Calendar.MONTH,1);setStats(db.stats(business,day,dayEnd),dayIncome,dayExpense,dayNet);setStats(db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()),weekIncome,weekExpense,weekNet);setStats(db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()),monthIncome,monthExpense,monthNet);setStats(db.totalStats(business),totalIncome,totalExpense,totalNet);chart.setData(db.lastSixMonths(business));refreshList();}
     private void setStats(double[] s,TextView i,TextView e,TextView n){i.setText("Gelir  "+money.format(s[0]));e.setText("Gider  "+money.format(s[1]));n.setText("Net  "+money.format(s[2]));n.setTextColor(s[2]>=0?0xFF13835D:0xFFD94A4A);}
-    private void refreshList(){if(adapter==null)return;long[] r=filterRange();adapter.setItems(db.list(business,search==null?"":search.getText().toString(),r[0],r[1],0));}
+    private void refreshList(){if(adapter==null)return;long[] r=filterRange();adapter.setItems(db.list(business,search==null?"":search.getText().toString(),r[0],r[1],0));resizeRecordList();}
+
+    private void resizeRecordList(){
+        if(list==null||adapter==null)return;
+        int count=adapter.getCount();
+        int row=dp(68);
+        int wanted=Math.max(dp(180),Math.min(dp(680),count*row+dp(12)));
+        ViewGroup.LayoutParams p=list.getLayoutParams();
+        if(p!=null){p.height=wanted;list.setLayoutParams(p);}
+    }
     private long[] filterRange(){int p=filter==null?0:filter.getSelectedItemPosition();Calendar now=Calendar.getInstance();if(p==4)return new long[]{customStart,customEnd};if(p==1){Calendar s=startOfDay(now),e=(Calendar)s.clone();e.add(Calendar.DAY_OF_MONTH,1);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}if(p==2){Calendar s=startOfWeek(now),e=(Calendar)s.clone();e.add(Calendar.DAY_OF_MONTH,7);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}if(p==3){Calendar s=startOfMonth(now),e=(Calendar)s.clone();e.add(Calendar.MONTH,1);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}return new long[]{0,0};}
 
     private void showAdd(String type){showForm(type,null);}
@@ -220,7 +229,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{Transaction local=db.byId(t.id);if(local!=null)CloudSync.delete(local.syncId);db.delete(t.id);refresh();}).show();}
 
-    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v1.5.5").setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
+    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v1.5.6").setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
     private void showSyncInfo(){
         String project=CloudSync.projectId(), email=CloudSync.email(), uid=CloudSync.uid();
         String msg="Durum: "+(CloudSync.signedIn()?"GİRİŞ YAPILMIŞ":"GİRİŞ YOK")+"\n\nFirebase Projesi: "+String.valueOf(project)+"\nE-posta: "+String.valueOf(email)+"\nUID: "+String.valueOf(uid);
