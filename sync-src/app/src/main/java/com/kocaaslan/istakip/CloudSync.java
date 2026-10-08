@@ -56,7 +56,7 @@ public final class CloudSync {
         if(Boolean.TRUE.equals(d.getBoolean("deleted"))){local.applyCloudDeletion(d.getId(),version);return;}
         String business=d.getString("business"),type=d.getString("type"),category=d.getString("category"),note=d.getString("note");
         Double amount=d.getDouble("amount");Long date=d.getLong("date");
-        if(business==null||(!"Gelir".equals(type)&&!"Gider".equals(type))||amount==null||!Double.isFinite(amount)||amount<=0||date==null||date<=0)
+        if(business==null||(!"Gelir".equals(type)&&!"Gider".equals(type))||amount==null||(Double.isNaN(amount)||Double.isInfinite(amount))||amount<=0||date==null||date<=0)
             throw new IllegalArgumentException("Geçersiz bulut kaydı: "+d.getId());
         local.upsertFromCloud(new Transaction(0,business,type,amount,category==null?"Diğer":category,note==null?"":note,date,d.getId(),version));
     }

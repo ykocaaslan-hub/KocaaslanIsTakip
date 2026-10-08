@@ -44,6 +44,22 @@ public class MainActivityTest {
         }
         Bundle state=new Bundle();activity.onSaveInstanceState(state);assertEquals(3,state.getInt("dashboardPeriod"));assertEquals(0,state.getInt("filter"));
     }
+    @Test public void backupPreservesIdsAndRepeatedRestoreKeepsCurrentRows()throws Exception{
+        DbHelper db=field("db");long id=db.add("Yavuz Kocaaslan","Gider",20,"Kira","",1000);
+        Transaction original=db.byId(id);
+        java.io.File file=new java.io.File(activity.getCacheDir(),"backup.json");android.net.Uri uri=android.net.Uri.fromFile(file);
+        java.lang.reflect.Method write=MainActivity.class.getDeclaredMethod("writeBackup",android.net.Uri.class);write.setAccessible(true);write.invoke(activity,uri);
+        org.json.JSONObject backup=new org.json.JSONObject(new String(java.nio.file.Files.readAllBytes(file.toPath()),java.nio.charset.StandardCharsets.UTF_8));
+        org.json.JSONObject row=backup.getJSONArray("transactions").getJSONObject(0);
+        assertEquals(2,backup.getInt("version"));assertEquals(original.syncId,row.getString("syncId"));assertEquals(original.updatedAt,row.getLong("updatedAt"));
+        db.add("Yavuz Kocaaslan","Gelir",30,"Satış","keep",2000);
+        java.lang.reflect.Method restore=MainActivity.class.getDeclaredMethod("restoreBackup",android.net.Uri.class);restore.setAccessible(true);
+        for(int i=0;i<2;i++){
+            restore.invoke(activity,uri);
+            org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+        }
+        assertEquals(2,db.all().size());assertEquals(original.syncId,db.byId(id).syncId);
+    }
     @Test public void bottomNavigationRemainsOutsideScrollableContent()throws Exception{
         LinearLayout root=field("root");assertTrue(root.getParent() instanceof ScrollView);
         LinearLayout frame=(LinearLayout)((ScrollView)root.getParent()).getParent();assertEquals(2,frame.getChildCount());

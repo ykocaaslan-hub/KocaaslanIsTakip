@@ -37,6 +37,17 @@ jobs:
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0"
       - name: Regresyon testleri ve Debug APK
         run: cd app && gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Test sonuc ozeti
+        run: |
+          python3 - <<'PYTEST'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          suites = [ET.parse(p).getroot() for p in Path('app/app/build/test-results/testDebugUnitTest').glob('TEST-*.xml')]
+          tests = sum(int(s.attrib['tests']) for s in suites)
+          failures = sum(int(s.attrib['failures']) + int(s.attrib['errors']) for s in suites)
+          assert tests >= 14 and failures == 0, (tests, failures)
+          print(f'Regression tests: {tests} passed, {failures} failures/errors')
+          PYTEST
       - name: Imzalama dosyasini yerlestir
         if: github.event_name != 'pull_request'
         run: cp kocaaslan-release.jks app/app/kocaaslan-release.jks
@@ -65,7 +76,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: regression-test-reports
-          path: app/app/build/reports/tests/testDebugUnitTest
+          path: |
+            app/app/build/reports/tests/testDebugUnitTest
+            app/app/build/test-results/testDebugUnitTest
           if-no-files-found: warn
       - name: APK dosyasini kaydet
         if: github.event_name != 'pull_request'
