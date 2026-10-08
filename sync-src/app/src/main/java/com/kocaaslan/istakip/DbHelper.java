@@ -62,7 +62,16 @@ public class DbHelper extends SQLiteOpenHelper {
         database.beginTransaction();
         try {
             clearAll();
-            for(Transaction t:rows) add(t.business,t.type,t.amount,t.category,t.note,t.date);
+            for(Transaction t:rows) {
+                ContentValues v=new ContentValues();
+                v.put("business",t.business);v.put("type",t.type);v.put("amount",t.amount);
+                v.put("category",t.category);v.put("note",t.note);v.put("date",t.date);
+                v.put("sync_id",t.syncId==null||t.syncId.trim().isEmpty()
+                        ?java.util.UUID.randomUUID().toString():t.syncId);
+                v.put("updated_at",t.updatedAt>0?t.updatedAt:System.currentTimeMillis());
+                v.put("sync_state",1);
+                database.insertOrThrow(T,null,v);
+            }
             database.setTransactionSuccessful();
         } finally { database.endTransaction(); }
     }
