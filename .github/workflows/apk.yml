@@ -3,9 +3,9 @@ name: Kocaaslan Is Takip APK
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
-  push:
     branches: [main, fix/issue-3-firebase-sync]
+  push:
+    branches: [main, fix/issue-3-firebase-sync, feat/fenerbahce-ataturk-theme]
 
 permissions:
   contents: read
@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Dosyalari al
         uses: actions/checkout@v4
+      - name: Ataturk portresini dogrula ve pakete ekle
+        run: python3 scripts/prepare_theme_assets.py
       - name: 1.6.7 kaynak hazirla
         run: |
           cp -R sync-src app
@@ -48,7 +50,7 @@ jobs:
           suites = [ET.parse(p).getroot() for p in Path('app/app/build/test-results/testDebugUnitTest').glob('TEST-*.xml')]
           tests = sum(int(s.attrib['tests']) for s in suites)
           failures = sum(int(s.attrib['failures']) + int(s.attrib['errors']) for s in suites)
-          assert tests >= 57 and failures == 0, (tests, failures)
+          assert tests >= 60 and failures == 0, (tests, failures)
           print(f'Regression tests: {tests} passed, {failures} failures/errors')
           PYTEST
       - name: Imzalama dosyasini yerlestir
@@ -82,6 +84,7 @@ jobs:
           path: |
             app/app/build/reports/tests/testDebugUnitTest
             app/app/build/test-results/testDebugUnitTest
+            app/app/build/theme-previews
           if-no-files-found: warn
       - name: APK dosyasini kaydet
         if: github.event_name != 'pull_request'

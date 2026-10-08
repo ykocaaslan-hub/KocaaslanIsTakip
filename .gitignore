@@ -4,3 +4,4 @@ local.properties
 __pycache__/
 *.pyc
 /app/
+/sync-src/app/src/main/res/drawable-nodpi/ataturk_portrait.jpg

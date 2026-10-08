@@ -88,9 +88,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         frame.addView(mainScroll,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));setContentView(frame);
         frame.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});frame.requestApplyInsets();
 
-        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(12),dp(12),dp(12),dp(12));GradientDrawable hg=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xFF06213D,0xFF0B3764});hg.setCornerRadius(dp(22));header.setBackground(hg);header.setElevation(dp(10));
-        TextView menu=txt("☰",24,Color.WHITE,true);menu.setGravity(Gravity.CENTER);menu.setMinimumWidth(dp(48));menu.setMinimumHeight(dp(48));menu.setContentDescription("Ayarlar");header.addView(menu,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayout htxt=new LinearLayout(this);htxt.setOrientation(LinearLayout.VERTICAL);htxt.addView(txt("Kocaaslan İş Takip",20,0xFFFFD21F,true));htxt.addView(txt("“Daima Fenerbahçe”",16,0xFFFFD21F,true));htxt.addView(txt("1907",12,0xFFFFD21F,true));header.addView(htxt,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));menu.setOnClickListener(v->settingsDialog());root.addView(header,mp(0,0,0,12));
+        root.addView(new ThemeHeader(this,this::settingsDialog),mp(0,0,0,16));
 
         LinearLayout businesses=new LinearLayout(this);businesses.setOrientation(LinearLayout.HORIZONTAL);
         b1=button("YK • 1. İşletme\n"+B1,0xFF0B2C50,Color.WHITE);b2=button("KK • 2. İşletme\n"+B2,0xFF0B2C50,Color.WHITE);
@@ -109,7 +107,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         root.addView(tabs,mp(0,0,0,12));
 
         LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);
-        dayIncome=summaryCard(stats,"Gelir","₺0",0xFF00D968);dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF3B4D);dayNet=summaryCard(stats,"Net","₺0",0xFF1B8CFF);
+        dayIncome=summaryCard(stats,"Gelir","₺0",0xFF43DEA5);dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF7786);dayNet=summaryCard(stats,"Net","₺0",0xFFFFD65A);
         weekIncome=txt("",1,Color.TRANSPARENT,false);weekExpense=txt("",1,Color.TRANSPARENT,false);weekNet=txt("",1,Color.TRANSPARENT,false);monthIncome=txt("",1,Color.TRANSPARENT,false);monthExpense=txt("",1,Color.TRANSPARENT,false);monthNet=txt("",1,Color.TRANSPARENT,false);
         root.addView(stats,mp(0,0,0,12));
 
@@ -162,8 +160,8 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         child.setMinimumHeight(dp(minHeight));parent.addView(child,params);
     }
     private TextView summaryCard(LinearLayout parent,String label,String value,int accent){
-        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(8),dp(12),dp(8),dp(12));GradientDrawable g=bg(0xFF092B4D,18);g.setStroke(dp(2),accent);card.setBackground(g);card.setElevation(dp(9));
-        card.addView(txt(label,16,Color.WHITE,true),mp(0,0,0,0));TextView v=txt(value,23,accent,true);card.addView(v,mp(0,4,0,0));addFlexible(parent,card,0);card.getLayoutParams().height=ViewGroup.LayoutParams.MATCH_PARENT;card.setOnClickListener(view->showSelectedTotals());return v;
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(8),dp(12),dp(8),dp(12));GradientDrawable g=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0xFF142B48,0xFF0B2039});g.setCornerRadius(dp(18));g.setStroke(dp(1),0xFF31465F);card.setBackground(g);card.setElevation(dp(4));
+        TextView heading=txt(label,14,0xFFC7D4E5,true);card.addView(heading,mp(0,0,0,0));View marker=new View(this);marker.setBackground(bg(accent,2));LinearLayout.LayoutParams markerParams=new LinearLayout.LayoutParams(dp(22),dp(3));markerParams.topMargin=dp(7);markerParams.bottomMargin=dp(6);card.addView(marker,markerParams);TextView v=txt(value,16,accent,true);card.addView(v,mp(0,2,0,0));addFlexible(parent,card,0);card.getLayoutParams().height=ViewGroup.LayoutParams.MATCH_PARENT;card.setOnClickListener(view->showSelectedTotals());return v;
     }
 
     private View periodCard(String label,int which){ LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(13),dp(13),dp(13),dp(13));box.setBackground(cardBg(0xFF0A2748));box.setElevation(dp(7));TextView l=txt(label,12,0xFFFFD21F,true);box.addView(l);TextView i=txt("Gelir 0",13,0xFF3EEA83,true),e=txt("Gider 0",13,0xFFFF5B63,true),n=txt("Net 0",17,0xFF4DB5FF,true);box.addView(i);box.addView(e);box.addView(n);if(which==0){dayIncome=i;dayExpense=e;dayNet=n;}else if(which==1){weekIncome=i;weekExpense=e;weekNet=n;}else{monthIncome=i;monthExpense=e;monthNet=n;}return box; }
@@ -181,72 +179,48 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         box.addView(vals);box.setOnClickListener(v->showGeneralBreakdown());return box;
     }
 
+    private LinearLayout historyTotalCard(String heading,double income,double expense,int background,int border){
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(12),dp(14),dp(12));
+        GradientDrawable drawable=bg(background,16);drawable.setStroke(dp(1),border);card.setBackground(drawable);
+        card.addView(txt(heading,16,0xFF273E60,true));
+        LinearLayout values=new LinearLayout(this);values.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);values.setPadding(0,dp(7),0,0);
+        values.addView(txt("Gelir: "+money.format(income),14,0xFF13835D,true),valueParams());
+        values.addView(txt("Gider: "+money.format(expense),14,0xFFD94A4A,true),valueParams());
+        double net=income-expense;values.addView(txt("Net: "+money.format(net),14,net>=0?0xFF13835D:0xFFD94A4A,true),valueParams());
+        card.addView(values);return card;
+    }
     private void showGeneralBreakdown(){
         List<Transaction> rows=db.list(business,"",0,0,0);
         TreeMap<Integer,TreeMap<Integer,double[]>> years=new TreeMap<>(Collections.reverseOrder());
-        double allIncome=0,allExpense=0;
-        Calendar cal=Calendar.getInstance();
-        for(Transaction t:rows){
-            cal.setTimeInMillis(t.date);int y=cal.get(Calendar.YEAR),m=cal.get(Calendar.MONTH);
-            TreeMap<Integer,double[]> months=years.get(y);if(months==null){months=new TreeMap<>();years.put(y,months);}
-            double[] v=months.get(m);if(v==null){v=new double[]{0,0};months.put(m,v);}
-            if("Gelir".equals(t.type)){v[0]+=t.amount;allIncome+=t.amount;}else{v[1]+=t.amount;allExpense+=t.amount;}
+        double allIncome=0,allExpense=0;Calendar calendar=Calendar.getInstance();
+        for(Transaction transaction:rows){
+            calendar.setTimeInMillis(transaction.date);int year=calendar.get(Calendar.YEAR),month=calendar.get(Calendar.MONTH);
+            TreeMap<Integer,double[]> months=years.get(year);if(months==null){months=new TreeMap<>(Collections.reverseOrder());years.put(year,months);}
+            double[] values=months.get(month);if(values==null){values=new double[]{0,0};months.put(month,values);}
+            if("Gelir".equals(transaction.type)){values[0]+=transaction.amount;allIncome+=transaction.amount;}else{values[1]+=transaction.amount;allExpense+=transaction.amount;}
         }
         LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(14),dp(8),dp(14),dp(8));
-        content.addView(txt(business+" — "+rows.size()+" kayıt, tüm tarihler",17,0xFF173C35,true),mp(0,0,0,10));
+        content.addView(txt(business+" — "+rows.size()+" aktif kayıt, tüm tarihler",17,0xFF173C35,true),mp(0,0,0,10));
+        content.addView(historyTotalCard("TÜM YILLAR GENEL TOPLAMI — "+rows.size()+" kayıt",allIncome,allExpense,0xFFFFF2C7,0xFFE0BE58),mp(0,0,0,14));
         if(years.isEmpty())content.addView(txt("Henüz kayıt bulunmuyor.",14,0xFF62746F,false));
         String[] monthNames=new java.text.DateFormatSymbols(new Locale("tr","TR")).getMonths();
-        for(Map.Entry<Integer,TreeMap<Integer,double[]>> ye:years.entrySet()){
-            int year=ye.getKey();double yi=0,yea=0;
-            TextView yh=txt(String.valueOf(year),20,0xFF173C35,true);content.addView(yh,mp(0,8,0,6));
-            for(Map.Entry<Integer,double[]> me:ye.getValue().entrySet()){
-                double[] v=me.getValue();yi+=v[0];yea+=v[1];double net=v[0]-v[1];
-                LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(12),dp(10),dp(12),dp(10));card.setBackground(cardBg(0xFFFFFFFF));
-                String mn=monthNames[me.getKey()];mn=mn.substring(0,1).toUpperCase(new Locale("tr","TR"))+mn.substring(1);card.addView(txt(mn,16,0xFF173C35,true));
-                LinearLayout vals=new LinearLayout(this);vals.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);vals.setPadding(0,dp(6),0,0);
-                vals.addView(txt("Ciro\n"+money.format(v[0]),13,0xFF13835D,true),valueParams());
-                vals.addView(txt("Gider\n"+money.format(v[1]),13,0xFFD94A4A,true),valueParams());
-                vals.addView(txt("Net\n"+money.format(net),13,net>=0?0xFF13835D:0xFFD94A4A,true),valueParams());
-                card.addView(vals);content.addView(card,mp(0,0,0,6));
+        for(Map.Entry<Integer,TreeMap<Integer,double[]>> entry:years.entrySet()){
+            int year=entry.getKey();double income=0,expense=0;
+            for(double[] values:entry.getValue().values()){income+=values[0];expense+=values[1];}
+            content.addView(historyTotalCard(year+" YILLIK TOPLAM",income,expense,0xFFEAF0F8,0xFFB8C9E0),mp(0,4,0,8));
+            for(Map.Entry<Integer,double[]> month:entry.getValue().entrySet()){
+                String name=monthNames[month.getKey()];name=name.substring(0,1).toUpperCase(new Locale("tr","TR"))+name.substring(1);
+                double[] values=month.getValue();content.addView(historyTotalCard(name+" "+year,values[0],values[1],Color.WHITE,0xFFE2EAE7),mp(0,0,0,6));
             }
-            double yn=yi-yea;LinearLayout yt=new LinearLayout(this);yt.setOrientation(LinearLayout.VERTICAL);yt.setPadding(dp(14),dp(11),dp(14),dp(11));GradientDrawable yg=bg(0xFFEAF4F0,14);yg.setStroke(dp(1),0xFFB8D7CD);yt.setBackground(yg);
-            yt.addView(txt(year+" YILLIK TOPLAM",15,0xFF315E54,true));yt.addView(txt("Ciro: "+money.format(yi)+"   Gider: "+money.format(yea)+"   Net: "+money.format(yn),14,yn>=0?0xFF13835D:0xFFD94A4A,true));content.addView(yt,mp(0,0,0,14));
         }
-        double allNet=allIncome-allExpense;LinearLayout grand=new LinearLayout(this);grand.setOrientation(LinearLayout.VERTICAL);grand.setPadding(dp(16),dp(14),dp(16),dp(14));GradientDrawable gg=bg(0xFFFFF2C7,16);gg.setStroke(dp(1),0xFFE0BE58);grand.setBackground(gg);
-        grand.addView(txt("TÜM YILLAR GENEL TOPLAMI — "+rows.size()+" kayıt",16,0xFF7A5B12,true));grand.addView(txt("Ciro: "+money.format(allIncome)+"\nGider: "+money.format(allExpense)+"\nNet: "+money.format(allNet),16,allNet>=0?0xFF13835D:0xFFD94A4A,true));content.addView(grand,mp(0,4,0,8));
-        ScrollView sv=new ScrollView(this);sv.addView(content);AlertDialog d=new AlertDialog.Builder(this).setTitle("Genel Toplam Detayı").setView(sv).setPositiveButton("Kapat",null).create();d.setOnShowListener(x->d.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,(int)(getResources().getDisplayMetrics().heightPixels*0.86)));d.show();
+        ScrollView scroll=new ScrollView(this);scroll.addView(content);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Gelir - Gider Detayı").setView(scroll).setPositiveButton("Kapat",null).create();
+        dialog.setOnShowListener(v->dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,(int)(getResources().getDisplayMetrics().heightPixels*0.86)));dialog.show();
     }
+    private void showMonthlyHistory(){showGeneralBreakdown();}
 
-    private void showMonthlyHistory(){
-        List<Transaction> rows=db.list(business,"",0,0,0);
-        TreeMap<String,double[]> months=new TreeMap<>(Collections.reverseOrder());
-        TreeMap<String,Long> monthDates=new TreeMap<>(Collections.reverseOrder());
-        SimpleDateFormat keyFmt=new SimpleDateFormat("yyyy-MM",Locale.US);
-        for(Transaction t:rows){
-            String key=keyFmt.format(new Date(t.date));
-            double[] v=months.get(key);if(v==null){v=new double[]{0,0};months.put(key,v);monthDates.put(key,t.date);}
-            if("Gelir".equals(t.type))v[0]+=t.amount;else v[1]+=t.amount;
-        }
-        LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(14),dp(8),dp(14),dp(8));
-        TextView who=txt(business,16,0xFF173C35,true);content.addView(who,mp(0,0,0,8));
-        if(months.isEmpty())content.addView(txt("Henüz aylık kayıt bulunmuyor.",14,0xFF62746F,false));
-        SimpleDateFormat monthFmt=new SimpleDateFormat("MMMM yyyy",new Locale("tr","TR"));
-        for(Map.Entry<String,double[]> entry:months.entrySet()){
-            double[] v=entry.getValue();double net=v[0]-v[1];
-            LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(12),dp(14),dp(12));card.setBackground(cardBg(0xFFFFFFFF));
-            String label=monthFmt.format(new Date(monthDates.get(entry.getKey())));label=label.substring(0,1).toUpperCase(new Locale("tr","TR"))+label.substring(1);
-            card.addView(txt(label,17,0xFF173C35,true));
-            LinearLayout vals=new LinearLayout(this);vals.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);vals.setPadding(0,dp(7),0,0);
-            vals.addView(txt("Ciro\n"+money.format(v[0]),14,0xFF13835D,true),valueParams());
-            vals.addView(txt("Gider\n"+money.format(v[1]),14,0xFFD94A4A,true),valueParams());
-            TextView netView=txt("Net\n"+money.format(net),14,net>=0?0xFF13835D:0xFFD94A4A,true);vals.addView(netView,valueParams());
-            card.addView(vals);content.addView(card,mp(0,0,0,8));
-        }
-        ScrollView sv=new ScrollView(this);sv.addView(content);
-        AlertDialog d=new AlertDialog.Builder(this).setTitle("Aylık Geçmiş").setView(sv).setPositiveButton("Kapat",null).create();d.setOnShowListener(x->d.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,(int)(getResources().getDisplayMetrics().heightPixels*0.82)));d.show();
-    }
-
-    private void switchBusiness(String b){business=b;titleBusiness.setText(b);boolean first=B1.equals(b);b1.setBackground(bg(first?0xFF1F9D72:0xFFE6ECE9,14));b1.setTextColor(first?Color.WHITE:0xFF24413B);b2.setBackground(bg(!first?0xFF1F9D72:0xFFE6ECE9,14));b2.setTextColor(!first?Color.WHITE:0xFF24413B);refresh();}
+    private void switchBusiness(String b){business=b;titleBusiness.setText(b);boolean first=B1.equals(b);businessStyle(b1,first);businessStyle(b2,!first);refresh();}
+    private void businessStyle(Button button,boolean selected){GradientDrawable drawable=bg(selected?0xFFFFD65A:0xFF10243E,16);drawable.setStroke(dp(1),selected?0xFFFFDF7C:0xFF344962);button.setBackground(drawable);button.setTextColor(selected?0xFF10213B:0xFFE1E9F3);}
 
     private void refresh(){ Calendar now=Calendar.getInstance(); long day=startOfDay(now).getTimeInMillis();Calendar d2=(Calendar)startOfDay(now).clone();d2.add(Calendar.DAY_OF_MONTH,1);long dayEnd=d2.getTimeInMillis();Calendar ws=startOfWeek(now);Calendar we=(Calendar)ws.clone();we.add(Calendar.DAY_OF_MONTH,7);Calendar ms=startOfMonth(now);Calendar me=(Calendar)ms.clone();me.add(Calendar.MONTH,1);double[] selected=dashboardPeriod==0?db.stats(business,day,dayEnd):dashboardPeriod==1?db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()):dashboardPeriod==2?db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()):db.totalStats(business);long expenseStart=dashboardPeriod==0?day:dashboardPeriod==1?ws.getTimeInMillis():dashboardPeriod==2?ms.getTimeInMillis():0;long expenseEnd=dashboardPeriod==0?dayEnd:dashboardPeriod==1?we.getTimeInMillis():dashboardPeriod==2?me.getTimeInMillis():0;selected[1]=db.expenseSum(business,expenseStart,expenseEnd);selected[2]=selected[0]-selected[1];setStats(selected,dayIncome,dayExpense,dayNet);setStats(db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()),weekIncome,weekExpense,weekNet);setStats(db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()),monthIncome,monthExpense,monthNet);setStats(db.totalStats(business),totalIncome,totalExpense,totalNet);chart.setData(db.lastSixMonths(business));refreshList();}
     private void setStats(double[] s,TextView i,TextView e,TextView n){i.setText(money.format(s[0]));e.setText(money.format(s[1]));n.setText(money.format(s[2]));i.setTextSize(16);e.setTextSize(16);n.setTextSize(16);i.setSingleLine(false);e.setSingleLine(false);n.setSingleLine(false);n.setTextColor(s[2]>=0?0xFF13835D:0xFFD94A4A);}
@@ -498,7 +472,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private TextView txt(String s,int sp,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setSingleLine(false);t.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);t.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);t.setTextColor(color);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     private Button button(String s,int bg,int fg){Button b=new Button(this);b.setText(s);b.setTextColor(fg);b.setTextSize(13);b.setAllCaps(false);b.setSingleLine(false);b.setMaxLines(Integer.MAX_VALUE);b.setMinWidth(0);b.setMinimumWidth(0);b.setPadding(dp(10),dp(10),dp(10),dp(10));b.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);b.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);b.setBackground(bg(bg,14));return b;}
     private GradientDrawable bg(int color,int radius){GradientDrawable g=new GradientDrawable();g.setColor(color);g.setCornerRadius(dp(radius));return g;}
-    private GradientDrawable cardBg(int color){GradientDrawable g=bg(color,16);g.setStroke(dp(1),0xFFE2EAE7);return g;}
+    private GradientDrawable cardBg(int color){GradientDrawable g=bg(color,16);g.setStroke(dp(1),color==0xFFFFFFFF?0xFFE2EAE7:0xFF334B67);return g;}
     private LinearLayout.LayoutParams mp(int l,int t,int r,int b){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);p.setMargins(dp(l),dp(t),dp(r),dp(b));return p;}
     private int dp(int x){return (int)(x*getResources().getDisplayMetrics().density+.5f);}
 }
