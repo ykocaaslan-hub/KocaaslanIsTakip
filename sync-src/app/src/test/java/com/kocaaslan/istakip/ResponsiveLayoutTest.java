@@ -76,14 +76,20 @@ public class ResponsiveLayoutTest {
         for(String label:new String[]{"Ana Sayfa","Kayıtlar","Raporlar","Genel Toplamlar"})assertNotNull(button(footer,label));
         assertNotNull(button(frame,"Çift kayıtları düzelt"));assertEquals(2,((TransactionAdapter)field("adapter")).getCount());
     }
+    private void savePreview(LinearLayout frame,String name)throws Exception {
+        ImageView portrait=frame.findViewWithTag("ataturk_portrait");assertNotNull(portrait);assertNotNull(portrait.getDrawable());
+        android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(frame.getWidth(),frame.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);
+        frame.draw(new android.graphics.Canvas(bitmap));java.io.File directory=new java.io.File("build/theme-previews");assertTrue(directory.isDirectory()||directory.mkdirs());
+        try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(directory,"theme-"+name+".png"))){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}finally{bitmap.recycle();}
+    }
     @Test @Config(qualifiers="w320dp-h640dp-mdpi") public void narrowPhoneAndLargeTextShowFullAmountsAndControls()throws Exception {
         LinearLayout frame=start(1.8f);measure(frame,320,640);assertContentAndNavigation(frame,640);
     }
     @Test @Config(qualifiers="w360dp-h640dp-mdpi") public void normalPhoneHasNoClippedLabelsOrAmounts()throws Exception {
-        LinearLayout frame=start(1f);measure(frame,360,640);assertContentAndNavigation(frame,640);
+        LinearLayout frame=start(1f);measure(frame,360,640);assertContentAndNavigation(frame,640);savePreview(frame,"phone");
     }
     @Test @Config(qualifiers="w800dp-h600dp-mdpi") public void tabletLayoutKeepsFullTextAndFixedNavigation()throws Exception {
-        LinearLayout frame=start(1f);measure(frame,800,600);assertContentAndNavigation(frame,600);
+        LinearLayout frame=start(1f);measure(frame,800,600);assertContentAndNavigation(frame,600);savePreview(frame,"tablet");
     }
     @Test @Config(qualifiers="w640dp-h360dp-mdpi") public void shortLandscapeWindowLeavesUsableScrollableContent()throws Exception {
         LinearLayout frame=start(1.3f);measure(frame,640,360);assertContentAndNavigation(frame,360);

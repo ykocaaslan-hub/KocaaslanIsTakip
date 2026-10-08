@@ -3,9 +3,9 @@ name: Kocaaslan Is Takip APK
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
-  push:
     branches: [main, fix/issue-3-firebase-sync]
+  push:
+    branches: [main, fix/issue-3-firebase-sync, feat/fenerbahce-ataturk-theme]
 
 permissions:
   contents: read
@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Dosyalari al
         uses: actions/checkout@v4
+      - name: Ataturk portresini dogrula ve pakete ekle
+        run: python3 scripts/prepare_theme_assets.py
       - name: 1.6.7 kaynak hazirla
         run: |
           cp -R sync-src app
@@ -82,6 +84,7 @@ jobs:
           path: |
             app/app/build/reports/tests/testDebugUnitTest
             app/app/build/test-results/testDebugUnitTest
+            app/app/build/theme-previews
           if-no-files-found: warn
       - name: APK dosyasini kaydet
         if: github.event_name != 'pull_request'
