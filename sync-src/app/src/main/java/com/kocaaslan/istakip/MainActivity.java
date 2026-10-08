@@ -179,70 +179,45 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         box.addView(vals);box.setOnClickListener(v->showGeneralBreakdown());return box;
     }
 
+    private LinearLayout historyTotalCard(String heading,double income,double expense,int background,int border){
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(12),dp(14),dp(12));
+        GradientDrawable drawable=bg(background,16);drawable.setStroke(dp(1),border);card.setBackground(drawable);
+        card.addView(txt(heading,16,0xFF273E60,true));
+        LinearLayout values=new LinearLayout(this);values.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);values.setPadding(0,dp(7),0,0);
+        values.addView(txt("Gelir: "+money.format(income),14,0xFF13835D,true),valueParams());
+        values.addView(txt("Gider: "+money.format(expense),14,0xFFD94A4A,true),valueParams());
+        double net=income-expense;values.addView(txt("Net: "+money.format(net),14,net>=0?0xFF13835D:0xFFD94A4A,true),valueParams());
+        card.addView(values);return card;
+    }
     private void showGeneralBreakdown(){
         List<Transaction> rows=db.list(business,"",0,0,0);
         TreeMap<Integer,TreeMap<Integer,double[]>> years=new TreeMap<>(Collections.reverseOrder());
-        double allIncome=0,allExpense=0;
-        Calendar cal=Calendar.getInstance();
-        for(Transaction t:rows){
-            cal.setTimeInMillis(t.date);int y=cal.get(Calendar.YEAR),m=cal.get(Calendar.MONTH);
-            TreeMap<Integer,double[]> months=years.get(y);if(months==null){months=new TreeMap<>();years.put(y,months);}
-            double[] v=months.get(m);if(v==null){v=new double[]{0,0};months.put(m,v);}
-            if("Gelir".equals(t.type)){v[0]+=t.amount;allIncome+=t.amount;}else{v[1]+=t.amount;allExpense+=t.amount;}
+        double allIncome=0,allExpense=0;Calendar calendar=Calendar.getInstance();
+        for(Transaction transaction:rows){
+            calendar.setTimeInMillis(transaction.date);int year=calendar.get(Calendar.YEAR),month=calendar.get(Calendar.MONTH);
+            TreeMap<Integer,double[]> months=years.get(year);if(months==null){months=new TreeMap<>(Collections.reverseOrder());years.put(year,months);}
+            double[] values=months.get(month);if(values==null){values=new double[]{0,0};months.put(month,values);}
+            if("Gelir".equals(transaction.type)){values[0]+=transaction.amount;allIncome+=transaction.amount;}else{values[1]+=transaction.amount;allExpense+=transaction.amount;}
         }
         LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(14),dp(8),dp(14),dp(8));
-        content.addView(txt(business+" — "+rows.size()+" kayıt, tüm tarihler",17,0xFF173C35,true),mp(0,0,0,10));
+        content.addView(txt(business+" — "+rows.size()+" aktif kayıt, tüm tarihler",17,0xFF173C35,true),mp(0,0,0,10));
+        content.addView(historyTotalCard("TÜM YILLAR GENEL TOPLAMI — "+rows.size()+" kayıt",allIncome,allExpense,0xFFFFF2C7,0xFFE0BE58),mp(0,0,0,14));
         if(years.isEmpty())content.addView(txt("Henüz kayıt bulunmuyor.",14,0xFF62746F,false));
         String[] monthNames=new java.text.DateFormatSymbols(new Locale("tr","TR")).getMonths();
-        for(Map.Entry<Integer,TreeMap<Integer,double[]>> ye:years.entrySet()){
-            int year=ye.getKey();double yi=0,yea=0;
-            TextView yh=txt(String.valueOf(year),20,0xFF173C35,true);content.addView(yh,mp(0,8,0,6));
-            for(Map.Entry<Integer,double[]> me:ye.getValue().entrySet()){
-                double[] v=me.getValue();yi+=v[0];yea+=v[1];double net=v[0]-v[1];
-                LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(12),dp(10),dp(12),dp(10));card.setBackground(cardBg(0xFFFFFFFF));
-                String mn=monthNames[me.getKey()];mn=mn.substring(0,1).toUpperCase(new Locale("tr","TR"))+mn.substring(1);card.addView(txt(mn,16,0xFF173C35,true));
-                LinearLayout vals=new LinearLayout(this);vals.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);vals.setPadding(0,dp(6),0,0);
-                vals.addView(txt("Ciro\n"+money.format(v[0]),13,0xFF13835D,true),valueParams());
-                vals.addView(txt("Gider\n"+money.format(v[1]),13,0xFFD94A4A,true),valueParams());
-                vals.addView(txt("Net\n"+money.format(net),13,net>=0?0xFF13835D:0xFFD94A4A,true),valueParams());
-                card.addView(vals);content.addView(card,mp(0,0,0,6));
+        for(Map.Entry<Integer,TreeMap<Integer,double[]>> entry:years.entrySet()){
+            int year=entry.getKey();double income=0,expense=0;
+            for(double[] values:entry.getValue().values()){income+=values[0];expense+=values[1];}
+            content.addView(historyTotalCard(year+" YILLIK TOPLAM",income,expense,0xFFEAF0F8,0xFFB8C9E0),mp(0,4,0,8));
+            for(Map.Entry<Integer,double[]> month:entry.getValue().entrySet()){
+                String name=monthNames[month.getKey()];name=name.substring(0,1).toUpperCase(new Locale("tr","TR"))+name.substring(1);
+                double[] values=month.getValue();content.addView(historyTotalCard(name+" "+year,values[0],values[1],Color.WHITE,0xFFE2EAE7),mp(0,0,0,6));
             }
-            double yn=yi-yea;LinearLayout yt=new LinearLayout(this);yt.setOrientation(LinearLayout.VERTICAL);yt.setPadding(dp(14),dp(11),dp(14),dp(11));GradientDrawable yg=bg(0xFFEAF4F0,14);yg.setStroke(dp(1),0xFFB8D7CD);yt.setBackground(yg);
-            yt.addView(txt(year+" YILLIK TOPLAM",15,0xFF315E54,true));yt.addView(txt("Ciro: "+money.format(yi)+"   Gider: "+money.format(yea)+"   Net: "+money.format(yn),14,yn>=0?0xFF13835D:0xFFD94A4A,true));content.addView(yt,mp(0,0,0,14));
         }
-        double allNet=allIncome-allExpense;LinearLayout grand=new LinearLayout(this);grand.setOrientation(LinearLayout.VERTICAL);grand.setPadding(dp(16),dp(14),dp(16),dp(14));GradientDrawable gg=bg(0xFFFFF2C7,16);gg.setStroke(dp(1),0xFFE0BE58);grand.setBackground(gg);
-        grand.addView(txt("TÜM YILLAR GENEL TOPLAMI — "+rows.size()+" kayıt",16,0xFF7A5B12,true));grand.addView(txt("Ciro: "+money.format(allIncome)+"\nGider: "+money.format(allExpense)+"\nNet: "+money.format(allNet),16,allNet>=0?0xFF13835D:0xFFD94A4A,true));content.addView(grand,mp(0,4,0,8));
-        ScrollView sv=new ScrollView(this);sv.addView(content);AlertDialog d=new AlertDialog.Builder(this).setTitle("Genel Toplam Detayı").setView(sv).setPositiveButton("Kapat",null).create();d.setOnShowListener(x->d.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,(int)(getResources().getDisplayMetrics().heightPixels*0.86)));d.show();
+        ScrollView scroll=new ScrollView(this);scroll.addView(content);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Gelir - Gider Detayı").setView(scroll).setPositiveButton("Kapat",null).create();
+        dialog.setOnShowListener(v->dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,(int)(getResources().getDisplayMetrics().heightPixels*0.86)));dialog.show();
     }
-
-    private void showMonthlyHistory(){
-        List<Transaction> rows=db.list(business,"",0,0,0);
-        TreeMap<String,double[]> months=new TreeMap<>(Collections.reverseOrder());
-        TreeMap<String,Long> monthDates=new TreeMap<>(Collections.reverseOrder());
-        SimpleDateFormat keyFmt=new SimpleDateFormat("yyyy-MM",Locale.US);
-        for(Transaction t:rows){
-            String key=keyFmt.format(new Date(t.date));
-            double[] v=months.get(key);if(v==null){v=new double[]{0,0};months.put(key,v);monthDates.put(key,t.date);}
-            if("Gelir".equals(t.type))v[0]+=t.amount;else v[1]+=t.amount;
-        }
-        LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(14),dp(8),dp(14),dp(8));
-        TextView who=txt(business,16,0xFF173C35,true);content.addView(who,mp(0,0,0,8));
-        if(months.isEmpty())content.addView(txt("Henüz aylık kayıt bulunmuyor.",14,0xFF62746F,false));
-        SimpleDateFormat monthFmt=new SimpleDateFormat("MMMM yyyy",new Locale("tr","TR"));
-        for(Map.Entry<String,double[]> entry:months.entrySet()){
-            double[] v=entry.getValue();double net=v[0]-v[1];
-            LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(12),dp(14),dp(12));card.setBackground(cardBg(0xFFFFFFFF));
-            String label=monthFmt.format(new Date(monthDates.get(entry.getKey())));label=label.substring(0,1).toUpperCase(new Locale("tr","TR"))+label.substring(1);
-            card.addView(txt(label,17,0xFF173C35,true));
-            LinearLayout vals=new LinearLayout(this);vals.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);vals.setPadding(0,dp(7),0,0);
-            vals.addView(txt("Ciro\n"+money.format(v[0]),14,0xFF13835D,true),valueParams());
-            vals.addView(txt("Gider\n"+money.format(v[1]),14,0xFFD94A4A,true),valueParams());
-            TextView netView=txt("Net\n"+money.format(net),14,net>=0?0xFF13835D:0xFFD94A4A,true);vals.addView(netView,valueParams());
-            card.addView(vals);content.addView(card,mp(0,0,0,8));
-        }
-        ScrollView sv=new ScrollView(this);sv.addView(content);
-        AlertDialog d=new AlertDialog.Builder(this).setTitle("Aylık Geçmiş").setView(sv).setPositiveButton("Kapat",null).create();d.setOnShowListener(x->d.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,(int)(getResources().getDisplayMetrics().heightPixels*0.82)));d.show();
-    }
+    private void showMonthlyHistory(){showGeneralBreakdown();}
 
     private void switchBusiness(String b){business=b;titleBusiness.setText(b);boolean first=B1.equals(b);businessStyle(b1,first);businessStyle(b2,!first);refresh();}
     private void businessStyle(Button button,boolean selected){GradientDrawable drawable=bg(selected?0xFFFFD65A:0xFF10243E,16);drawable.setStroke(dp(1),selected?0xFFFFDF7C:0xFF344962);button.setBackground(drawable);button.setTextColor(selected?0xFF10213B:0xFFE1E9F3);}

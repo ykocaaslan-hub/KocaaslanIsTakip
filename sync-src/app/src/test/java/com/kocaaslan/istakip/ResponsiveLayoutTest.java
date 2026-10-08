@@ -82,14 +82,18 @@ public class ResponsiveLayoutTest {
         frame.draw(new android.graphics.Canvas(bitmap));java.io.File directory=new java.io.File("build/theme-previews");assertTrue(directory.isDirectory()||directory.mkdirs());
         try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(directory,"theme-"+name+".png"))){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}finally{bitmap.recycle();}
     }
+    private void assertDetailReadable(LinearLayout frame)throws Exception {
+        button(frame,"Detay Gör").performClick();Shadows.shadowOf(Looper.getMainLooper()).idle();android.app.AlertDialog dialog=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();View decor=dialog.getWindow().getDecorView();
+        int width=frame.getWidth(),height=Math.max(1,Math.round(frame.getHeight()*.86f));decor.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));decor.layout(0,0,width,height);assertTrue(assertReadable(decor)>10);dialog.dismiss();
+    }
     @Test @Config(qualifiers="w320dp-h640dp-mdpi") public void narrowPhoneAndLargeTextShowFullAmountsAndControls()throws Exception {
         LinearLayout frame=start(1.8f);measure(frame,320,640);assertContentAndNavigation(frame,640);
     }
     @Test @Config(qualifiers="w360dp-h640dp-mdpi") public void normalPhoneHasNoClippedLabelsOrAmounts()throws Exception {
-        LinearLayout frame=start(1f);measure(frame,360,640);assertContentAndNavigation(frame,640);savePreview(frame,"phone");
+        LinearLayout frame=start(1f);measure(frame,360,640);assertContentAndNavigation(frame,640);savePreview(frame,"phone");assertDetailReadable(frame);
     }
     @Test @Config(qualifiers="w800dp-h600dp-mdpi") public void tabletLayoutKeepsFullTextAndFixedNavigation()throws Exception {
-        LinearLayout frame=start(1f);measure(frame,800,600);assertContentAndNavigation(frame,600);savePreview(frame,"tablet");
+        LinearLayout frame=start(1f);measure(frame,800,600);assertContentAndNavigation(frame,600);savePreview(frame,"tablet");assertDetailReadable(frame);
     }
     @Test @Config(qualifiers="w640dp-h360dp-mdpi") public void shortLandscapeWindowLeavesUsableScrollableContent()throws Exception {
         LinearLayout frame=start(1.3f);measure(frame,640,360);assertContentAndNavigation(frame,360);
@@ -101,5 +105,6 @@ public class ResponsiveLayoutTest {
         View row=((TransactionAdapter)field("adapter")).getView(0,null,(ListView)field("list"));
         int width=284;row.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));row.layout(0,0,width,row.getMeasuredHeight());assertTrue(assertReadable(row)>=4);
         assertNotNull(button(row,"Sil"));
+        assertDetailReadable(frame);
     }
 }

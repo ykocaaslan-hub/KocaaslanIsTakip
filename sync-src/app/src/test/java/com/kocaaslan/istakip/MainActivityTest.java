@@ -109,6 +109,35 @@ public class MainActivityTest {
         StringBuilder text=new StringBuilder();if(v instanceof TextView)text.append(((TextView)v).getText()).append("\n");
         if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++)text.append(viewText(((ViewGroup)v).getChildAt(i)));return text.toString();
     }
+    private ViewGroup cardByHeading(View view,String heading){
+        if(view instanceof TextView&&heading.equals(((TextView)view).getText().toString()))return (ViewGroup)view.getParent();
+        if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++){ViewGroup found=cardByHeading(((ViewGroup)view).getChildAt(i),heading);if(found!=null)return found;}return null;
+    }
+    private void assertCardTotals(android.app.AlertDialog dialog,String heading,double income,double expense)throws Exception {
+        ViewGroup card=cardByHeading(dialog.getWindow().getDecorView(),heading);assertNotNull(heading,card);String text=viewText(card);java.text.NumberFormat money=field("money");
+        assertTrue(heading,text.contains("Gelir: "+money.format(income)));assertTrue(heading,text.contains("Gider: "+money.format(expense)));assertTrue(heading,text.contains("Net: "+money.format(income-expense)));
+    }
+    private long reportDate(int year,int month,int day,int hour,int minute){Calendar date=Calendar.getInstance();date.clear();date.set(year,month-1,day,hour,minute,0);return date.getTimeInMillis();}
+    private android.app.AlertDialog openDetail(String label){button(activity.getWindow().getDecorView(),label).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();return org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();}
+    @Test public void detailShowsOverallThenYearlyAndMonthlyTotalsAcrossYearBoundaryIgnoringArchiveAndFilters()throws Exception {
+        TimeZone original=TimeZone.getDefault();TimeZone.setDefault(TimeZone.getTimeZone("Europe/Istanbul"));
+        try{
+            DbHelper db=field("db");long old=reportDate(2025,12,31,23,59),recent=reportDate(2026,1,1,0,1);
+            db.add("Yavuz Kocaaslan","Gelir",120,"Satış","",old);db.add("Yavuz Kocaaslan","Gider",20,"Kira","",old);db.add("Yavuz Kocaaslan","Gelir",30,"Satış","",recent);db.add("Yavuz Kocaaslan","Gider",60,"Kira","",recent);
+            db.add("Kocaaslan Kantin","Gelir",9999,"Satış","other business",recent);db.mergeBackup(Collections.singletonList(new Transaction(0,"Yavuz Kocaaslan","Gider",5000,"Kira","archive",recent,"archived-report-fixture",10,true)));
+            ((EditText)field("search")).setText("no matches");button(activity.getWindow().getDecorView(),"Bugün").performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertEquals(0,((TransactionAdapter)field("adapter")).getCount());
+            android.app.AlertDialog dialog=openDetail("Detay Gör");assertCardTotals(dialog,"TÜM YILLAR GENEL TOPLAMI — 4 kayıt",150,80);assertCardTotals(dialog,"2026 YILLIK TOPLAM",30,60);assertCardTotals(dialog,"Ocak 2026",30,60);assertCardTotals(dialog,"2025 YILLIK TOPLAM",120,20);assertCardTotals(dialog,"Aralık 2025",120,20);
+            String text=viewText(dialog.getWindow().getDecorView());assertTrue(text.indexOf("GENEL TOPLAMI")<text.indexOf("2026 YILLIK TOPLAM"));assertTrue(text.indexOf("2026 YILLIK TOPLAM")<text.indexOf("Ocak 2026"));assertTrue(text.indexOf("Ocak 2026")<text.indexOf("2025 YILLIK TOPLAM"));assertEquals(6,db.all().size());assertEquals(1,db.archivedCount());
+        }finally{TimeZone.setDefault(original);}
+    }
+    @Test public void detailAndGeneralNavigationUseSelectedBusinessWithoutWritingRecords()throws Exception {
+        DbHelper db=field("db");db.add("Yavuz Kocaaslan","Gelir",90,"Satış","",reportDate(2025,8,1,12,0));db.add("Kocaaslan Kantin","Gider",15,"Kira","",reportDate(2024,3,1,12,0));byte[] before=BackupData.write(db.all());int pending=db.pending().size();
+        button(activity.getWindow().getDecorView(),"Kocaaslan Kantin").performClick();android.app.AlertDialog detail=openDetail("Detay Gör");assertCardTotals(detail,"TÜM YILLAR GENEL TOPLAMI — 1 kayıt",0,15);assertCardTotals(detail,"2024 YILLIK TOPLAM",0,15);assertTrue(viewText(detail.getWindow().getDecorView()).contains("Kocaaslan Kantin"));assertFalse(viewText(detail.getWindow().getDecorView()).contains("2025 YILLIK TOPLAM"));detail.dismiss();
+        android.app.AlertDialog general=openDetail("Genel Toplamlar");assertCardTotals(general,"TÜM YILLAR GENEL TOPLAMI — 1 kayıt",0,15);assertArrayEquals(before,BackupData.write(db.all()));assertEquals(pending,db.pending().size());
+    }
+    @Test public void emptyDetailShowsZeroOverallAndNoInventedYearTotals()throws Exception {
+        ((DbHelper)field("db")).add("Kocaaslan Kantin","Gelir",100,"Satış","",reportDate(2026,1,1,12,0));android.app.AlertDialog dialog=openDetail("Detay Gör");assertCardTotals(dialog,"TÜM YILLAR GENEL TOPLAMI — 0 kayıt",0,0);String text=viewText(dialog.getWindow().getDecorView());assertTrue(text.contains("Henüz kayıt bulunmuyor"));assertFalse(text.contains("YILLIK TOPLAM"));
+    }
     @Test public void emptyFilteredListExplainsHiddenRecordsAndProvidesAllRecordsAction()throws Exception{
         DbHelper db=field("db");db.add("Yavuz Kocaaslan","Gider",12,"Kira","old",1000);controller.pause().resume();
         assertEquals(0,((TransactionAdapter)field("adapter")).getCount());assertTrue(((TextView)field("recordsStatus")).getText().toString().contains("0 / 1"));
