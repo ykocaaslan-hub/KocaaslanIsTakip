@@ -170,3 +170,27 @@ payload and a second database's archive/undo download. UI cases cover preview/ca
 confirmation, automatic pre-operation snapshot, visible corrected totals, undo,
 changed preview and the separate picker. User backups are used only for a local Java
 planner check; no financial data, notes or private files are included in this PR.
+
+
+## Narrow screens and large text
+
+The dashboard previously forced three single-line currency amounts into equal narrow
+columns and used fixed heights for business selectors, period tabs, summary cards,
+quick actions, chart heading and bottom navigation. Long labels and larger Android
+font sizes could therefore be clipped even though the stored/calculated values were
+unchanged.
+
+Phone windows use stacked full-width summary cards, two-row period tabs and full-width
+chart/search headings. Large font settings also stack business selectors and quick
+buttons, and use two rows for navigation. Wider windows keep columns. Text/control
+heights wrap content with minimum touch heights; currency text can wrap and is never
+ellipsized or abbreviated. Transaction notes and dates have their own full-width area,
+with the full amount and delete button below. Report columns follow the same compact
+layout. Android's user font size remains respected; no font-scale override is used.
+
+Native text-layout regression tests measure 320dp/1.8x, 360dp/1x, 800dp tablet and short
+landscape windows, plus 320dp/2x with large currency values and long notes. They assert
+all laid-out text ends, line widths/heights, exact formatted amounts, usable scroll
+height and reachable navigation, rather than only inspecting LayoutParams. A real
+screenshot on the affected device remains useful to verify its specific font/display
+settings. This UI change does not alter transaction identity, archive or totals logic.

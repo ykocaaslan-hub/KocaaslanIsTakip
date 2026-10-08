@@ -88,36 +88,44 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         frame.addView(mainScroll,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));setContentView(frame);
         frame.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});frame.requestApplyInsets();
 
-        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(16),dp(12),dp(16),dp(12));GradientDrawable hg=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xFF06213D,0xFF0B3764});hg.setCornerRadius(dp(22));header.setBackground(hg);header.setElevation(dp(10));
-        TextView menu=txt("☰",30,Color.WHITE,true);header.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(52)));
-        LinearLayout htxt=new LinearLayout(this);htxt.setOrientation(LinearLayout.VERTICAL);htxt.addView(txt("▮▮  Kocaaslan İş Takip",25,0xFFFFD21F,true));htxt.addView(txt("“Daima Fenerbahçe”",16,0xFFFFD21F,true));header.addView(htxt,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        TextView ata=txt("★  1907",16,0xFFFFD21F,true);ata.setGravity(Gravity.CENTER);header.addView(ata,new LinearLayout.LayoutParams(dp(82),dp(52)));menu.setOnClickListener(v->settingsDialog());root.addView(header,mp(0,0,0,12));
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(12),dp(12),dp(12),dp(12));GradientDrawable hg=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xFF06213D,0xFF0B3764});hg.setCornerRadius(dp(22));header.setBackground(hg);header.setElevation(dp(10));
+        TextView menu=txt("☰",24,Color.WHITE,true);menu.setGravity(Gravity.CENTER);menu.setMinimumWidth(dp(48));menu.setMinimumHeight(dp(48));menu.setContentDescription("Ayarlar");header.addView(menu,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout htxt=new LinearLayout(this);htxt.setOrientation(LinearLayout.VERTICAL);htxt.addView(txt("Kocaaslan İş Takip",20,0xFFFFD21F,true));htxt.addView(txt("“Daima Fenerbahçe”",16,0xFFFFD21F,true));htxt.addView(txt("1907",12,0xFFFFD21F,true));header.addView(htxt,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));menu.setOnClickListener(v->settingsDialog());root.addView(header,mp(0,0,0,12));
 
-        LinearLayout businesses=new LinearLayout(this);businesses.setOrientation(LinearLayout.HORIZONTAL);
-        b1=button("♛  YK   Yavuz Kocaaslan\n      1. İşletme",0xFF0B2C50,Color.WHITE);b2=button("▣  KK   Kocaaslan Kantin\n      2. İşletme",0xFF0B2C50,Color.WHITE);
-        b1.setTextSize(15);b2.setTextSize(15);b1.setGravity(Gravity.CENTER_VERTICAL);b2.setGravity(Gravity.CENTER_VERTICAL);b1.setPadding(dp(14),0,dp(10),0);b2.setPadding(dp(14),0,dp(10),0);
-        b1.setOnClickListener(v->switchBusiness(B1));b2.setOnClickListener(v->switchBusiness(B2));businesses.addView(b1,new LinearLayout.LayoutParams(0,dp(92),1));LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(92),1);bp.setMargins(dp(10),0,0,0);businesses.addView(b2,bp);root.addView(businesses,mp(0,0,0,12));
+        LinearLayout businesses=new LinearLayout(this);businesses.setOrientation(largeText()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        b1=button("YK • 1. İşletme\n"+B1,0xFF0B2C50,Color.WHITE);b2=button("KK • 2. İşletme\n"+B2,0xFF0B2C50,Color.WHITE);
+        b1.setTextSize(15);b2.setTextSize(15);b1.setGravity(Gravity.CENTER_VERTICAL);b2.setGravity(Gravity.CENTER_VERTICAL);
+        b1.setOnClickListener(v->switchBusiness(B1));b2.setOnClickListener(v->switchBusiness(B2));addFlexible(businesses,b1,72);addFlexible(businesses,b2,72);root.addView(businesses,mp(0,0,0,12));
 
         titleBusiness=txt(business,1,0xFF031426,false);titleBusiness.setVisibility(View.GONE);root.addView(titleBusiness,new LinearLayout.LayoutParams(1,1));
 
-        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);String[] tabNames={"▣  Bugün","▣  Bu Hafta","▣  Bu Ay","▣  Tümü"};for(int k=0;k<4;k++){final int period=k;Button tb=button(tabNames[k],k==dashboardPeriod?0xFFFFD21F:0xFF082846,k==dashboardPeriod?0xFF061A33:Color.WHITE);tb.setTextSize(14);tb.setOnClickListener(v->{savedSearch=search.getText().toString();dashboardPeriod=period;savedFilter=period==3?0:period+1;buildUi();});LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(52),1);if(k>0)tp.setMargins(dp(4),0,0,0);tabs.addView(tb,tp);}root.addView(tabs,mp(0,0,0,12));
+        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.VERTICAL);String[] tabNames={"Bugün","Bu Hafta","Bu Ay","Tümü"};
+        LinearLayout tabRow=null;
+        for(int k=0;k<4;k++){
+            if(k%(compactLayout()?2:4)==0){tabRow=new LinearLayout(this);tabs.addView(tabRow,mp(0,k==0?0:6,0,0));}
+            final int period=k;Button tb=button(tabNames[k],k==dashboardPeriod?0xFFFFD21F:0xFF082846,k==dashboardPeriod?0xFF061A33:Color.WHITE);tb.setTextSize(14);
+            tb.setOnClickListener(v->{savedSearch=search.getText().toString();dashboardPeriod=period;savedFilter=period==3?0:period+1;buildUi();});addFlexible(tabRow,tb,48);
+        }
+        root.addView(tabs,mp(0,0,0,12));
 
-        LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);
-        dayIncome=summaryCard(stats,"Gelir","₺0",0xFF00D968,"▥");dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF3B4D,"▥");dayNet=summaryCard(stats,"Net","₺0",0xFF1B8CFF,"●");
+        LinearLayout stats=new LinearLayout(this);stats.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        dayIncome=summaryCard(stats,"Gelir","₺0",0xFF00D968);dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF3B4D);dayNet=summaryCard(stats,"Net","₺0",0xFF1B8CFF);
         weekIncome=txt("",1,Color.TRANSPARENT,false);weekExpense=txt("",1,Color.TRANSPARENT,false);weekNet=txt("",1,Color.TRANSPARENT,false);monthIncome=txt("",1,Color.TRANSPARENT,false);monthExpense=txt("",1,Color.TRANSPARENT,false);monthNet=txt("",1,Color.TRANSPARENT,false);
         root.addView(stats,mp(0,0,0,12));
 
-        LinearLayout quick=new LinearLayout(this);quick.setOrientation(LinearLayout.HORIZONTAL);Button addI=button("＋   GELİR EKLE\n     Para girişi kaydet",0xFF009D50,Color.WHITE);Button addE=button("＋   GİDER EKLE\n     Para çıkışı kaydet",0xFFD51E2B,Color.WHITE);addI.setTextSize(17);addE.setTextSize(17);addI.setOnClickListener(v->showAdd("Gelir"));addE.setOnClickListener(v->showAdd("Gider"));quick.addView(addI,new LinearLayout.LayoutParams(0,dp(96),1));LinearLayout.LayoutParams qe=new LinearLayout.LayoutParams(0,dp(96),1);qe.setMargins(dp(10),0,0,0);quick.addView(addE,qe);root.addView(quick,mp(0,0,0,12));
+        LinearLayout quick=new LinearLayout(this);quick.setOrientation(largeText()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        Button addI=button("＋ Gelir ekle",0xFF009D50,Color.WHITE),addE=button("＋ Gider ekle",0xFFD51E2B,Color.WHITE);addI.setTextSize(17);addE.setTextSize(17);addI.setOnClickListener(v->showAdd("Gelir"));addE.setOnClickListener(v->showAdd("Gider"));addFlexible(quick,addI,64);addFlexible(quick,addE,64);root.addView(quick,mp(0,0,0,12));
 
         LinearLayout total= (LinearLayout)totalCard(); total.setVisibility(View.GONE); root.addView(total,new LinearLayout.LayoutParams(1,1));
         Button monthlyHistory=button("Detay Gör  ›",0xFF0B2C50,Color.WHITE);monthlyHistory.setOnClickListener(v->showMonthlyHistory());
 
-        LinearLayout chartHead=new LinearLayout(this);chartHead.setGravity(Gravity.CENTER_VERTICAL);chartHead.addView(txt("▮▮  Son 6 Ayın Gelir - Gider Durumu",18,Color.WHITE,true),new LinearLayout.LayoutParams(0,dp(46),1));chartHead.addView(monthlyHistory,new LinearLayout.LayoutParams(dp(125),dp(42)));root.addView(chartHead);
+        LinearLayout chartHead=new LinearLayout(this);chartHead.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);chartHead.setGravity(Gravity.CENTER_VERTICAL);
+        addFlexible(chartHead,txt("Son 6 Ayın Gelir - Gider Durumu",18,Color.WHITE,true),0);addFlexible(chartHead,monthlyHistory,48);root.addView(chartHead,mp(0,0,0,6));
         LinearLayout legend=new LinearLayout(this);legend.setGravity(Gravity.RIGHT);legend.addView(txt("● Gelir     ",12,0xFF20E777,true));legend.addView(txt("● Gider",12,0xFFFF4B55,true));root.addView(legend);
         chart=new ChartView(this);chart.setBackground(cardBg(0xFF082846));chart.setElevation(dp(8));root.addView(chart,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(235)));
 
-        LinearLayout section=new LinearLayout(this);section.setGravity(Gravity.CENTER_VERTICAL);section.setPadding(0,dp(10),0,dp(6));section.addView(txt("▤  Son İşlemler",20,Color.WHITE,true),new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        search=new EditText(this);search.setHint("Kayıtlarda ara…");search.setSingleLine(true);search.setTextColor(Color.WHITE);search.setHintTextColor(0xFFB7C5D3);search.setBackground(cardBg(0xFF082846));search.setPadding(dp(14),0,dp(14),0);section.addView(search,new LinearLayout.LayoutParams(dp(230),dp(48)));root.addView(section);
+        LinearLayout section=new LinearLayout(this);section.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);section.setGravity(Gravity.CENTER_VERTICAL);section.setPadding(0,dp(10),0,dp(6));addFlexible(section,txt("Son İşlemler",20,Color.WHITE,true),0);
+        search=new EditText(this);search.setHint("Kayıtlarda ara");search.setSingleLine(true);search.setTextColor(Color.WHITE);search.setHintTextColor(0xFFB7C5D3);search.setBackground(cardBg(0xFF082846));search.setPadding(dp(14),dp(8),dp(14),dp(8));addFlexible(section,search,48);root.addView(section);
         filter=new Spinner(this);ArrayAdapter<String> fa=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Tümü","Bugün","Bu hafta","Bu ay","Özel tarih"});filter.setAdapter(fa);filter.setVisibility(View.GONE);root.addView(filter,new LinearLayout.LayoutParams(1,1));
         search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int c,int a){}public void onTextChanged(CharSequence s,int st,int b,int c){refreshList();}public void afterTextChanged(Editable e){}});
         filter.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){if(pos==4&&customEnd==0)chooseRange();else refreshList();}public void onNothingSelected(android.widget.AdapterView<?> p){}});
@@ -128,16 +136,34 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
         list=new ListView(this);list.setDivider(null);list.setDividerHeight(0);list.setNestedScrollingEnabled(false);adapter=new TransactionAdapter(this,this);list.setAdapter(adapter);list.setOnItemClickListener((parent,view,position,id)->showForm(adapter.getItem(position).type,adapter.getItem(position)));LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(360));root.addView(list,listParams);
 
-        LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);String[] nav={"⌂\nAna Sayfa","☷\nKayıtlar","▥\nRaporlar","◔\nGenel Toplamlar"};for(int k=0;k<nav.length;k++){Button nb=button(nav[k],k==0?0xFF0B2C50:0xFF061C34,k==0?0xFFFFD21F:Color.WHITE);nb.setTextSize(13);if(k==0)nb.setOnClickListener(v->mainScroll.smoothScrollTo(0,0));else if(k==1)nb.setOnClickListener(v->{refreshList();mainScroll.smoothScrollTo(0,recordsStatus.getTop());});else if(k==2)nb.setOnClickListener(v->showCategoryReport());else if(k==3)nb.setOnClickListener(v->showGeneralBreakdown());bottom.addView(nb,new LinearLayout.LayoutParams(0,dp(70),1));}frame.addView(bottom,mp(0,0,0,0));
+        LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.VERTICAL);String[] nav={"Ana Sayfa","Kayıtlar","Raporlar","Genel Toplamlar"};LinearLayout navRow=null;
+        int navColumns=largeText()||getResources().getConfiguration().screenWidthDp<360?2:4;
+        for(int k=0;k<nav.length;k++){
+            if(k%navColumns==0){navRow=new LinearLayout(this);bottom.addView(navRow,mp(0,k==0?0:4,0,0));}
+            Button nb=button(nav[k],k==0?0xFF0B2C50:0xFF061C34,k==0?0xFFFFD21F:Color.WHITE);nb.setTextSize(13);
+            if(k==0)nb.setOnClickListener(v->mainScroll.smoothScrollTo(0,0));else if(k==1)nb.setOnClickListener(v->{refreshList();mainScroll.smoothScrollTo(0,recordsStatus.getTop());});else if(k==2)nb.setOnClickListener(v->showCategoryReport());else if(k==3)nb.setOnClickListener(v->showGeneralBreakdown());addFlexible(navRow,nb,48);
+        }
+        frame.addView(bottom,mp(0,0,0,0));
 
-        LinearLayout acts=new LinearLayout(this);acts.setOrientation(LinearLayout.HORIZONTAL);Button csv=button("CSV / Excel",0xFF0B2C50,Color.WHITE);Button backup=button("Yedekle",0xFF0B2C50,Color.WHITE);Button restore=button("Geri Yükle",0xFF0B2C50,Color.WHITE);csv.setOnClickListener(v->beginCsv());backup.setOnClickListener(v->beginBackup());restore.setOnClickListener(v->beginRestore());acts.addView(csv,new LinearLayout.LayoutParams(0,dp(46),1));acts.addView(backup,new LinearLayout.LayoutParams(0,dp(46),1));acts.addView(restore,new LinearLayout.LayoutParams(0,dp(46),1));root.addView(acts);
+        LinearLayout acts=new LinearLayout(this);acts.setOrientation(largeText()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        Button csv=button("CSV / Excel",0xFF0B2C50,Color.WHITE),backup=button("Yedekle",0xFF0B2C50,Color.WHITE),restore=button("Geri Yükle",0xFF0B2C50,Color.WHITE);
+        csv.setOnClickListener(v->beginCsv());backup.setOnClickListener(v->beginBackup());restore.setOnClickListener(v->beginRestore());addFlexible(acts,csv,48);addFlexible(acts,backup,48);addFlexible(acts,restore,48);root.addView(acts);
         Button repair=button("Çift kayıtları düzelt",0xFF0B2C50,Color.WHITE);repair.setOnClickListener(v->beginRepair());root.addView(repair,mp(0,8,0,0));
         search.setText(savedSearch);filter.setSelection(savedFilter);switchBusiness(business);
     }
 
-    private TextView summaryCard(LinearLayout parent,String label,String value,int accent,String icon){
+    private boolean largeText(){return getResources().getConfiguration().fontScale>1.25f;}
+    private boolean compactLayout(){return getResources().getConfiguration().screenWidthDp<600||largeText();}
+    private LinearLayout.LayoutParams valueParams(){return new LinearLayout.LayoutParams(compactLayout()?ViewGroup.LayoutParams.MATCH_PARENT:0,ViewGroup.LayoutParams.WRAP_CONTENT,compactLayout()?0:1);}
+    private void addFlexible(LinearLayout parent,View child,int minHeight){
+        boolean vertical=parent.getOrientation()==LinearLayout.VERTICAL;
+        LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(vertical?ViewGroup.LayoutParams.MATCH_PARENT:0,ViewGroup.LayoutParams.WRAP_CONTENT,vertical?0:1);
+        if(parent.getChildCount()>0)params.setMargins(vertical?0:dp(8),vertical?dp(8):0,0,0);
+        child.setMinimumHeight(dp(minHeight));parent.addView(child,params);
+    }
+    private TextView summaryCard(LinearLayout parent,String label,String value,int accent){
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(16),dp(12),dp(16),dp(12));GradientDrawable g=bg(0xFF092B4D,18);g.setStroke(dp(2),accent);card.setBackground(g);card.setElevation(dp(9));
-        TextView l=txt(icon+"  "+label,16,Color.WHITE,true);TextView v=txt(value,23,accent,true);card.addView(l);card.addView(v);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(112),1);if(parent.getChildCount()>0)lp.setMargins(dp(10),0,0,0);parent.addView(card,lp);return v;
+        card.addView(txt(label,16,Color.WHITE,true),mp(0,0,0,0));TextView v=txt(value,23,accent,true);card.addView(v,mp(0,4,0,0));addFlexible(parent,card,0);return v;
     }
 
     private View periodCard(String label,int which){ LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(13),dp(13),dp(13),dp(13));box.setBackground(cardBg(0xFF0A2748));box.setElevation(dp(7));TextView l=txt(label,12,0xFFFFD21F,true);box.addView(l);TextView i=txt("Gelir 0",13,0xFF3EEA83,true),e=txt("Gider 0",13,0xFFFF5B63,true),n=txt("Net 0",17,0xFF4DB5FF,true);box.addView(i);box.addView(e);box.addView(n);if(which==0){dayIncome=i;dayExpense=e;dayNet=n;}else if(which==1){weekIncome=i;weekExpense=e;weekNet=n;}else{monthIncome=i;monthExpense=e;monthNet=n;}return box; }
@@ -147,11 +173,11 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         GradientDrawable g=bg(0xFF0A2748,16);g.setStroke(dp(2),0xFFFFD21F);box.setBackground(g);box.setElevation(dp(8));
         TextView l=txt("GENEL TOPLAM",14,0xFFFFD21F,true);box.addView(l);
         TextView sub=txt("İlk kayıttan bugüne • Detay için dokunun",12,0xFFB8C8D8,false);box.addView(sub);
-        LinearLayout vals=new LinearLayout(this);vals.setOrientation(LinearLayout.HORIZONTAL);vals.setPadding(0,dp(8),0,0);
+        LinearLayout vals=new LinearLayout(this);vals.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);vals.setPadding(0,dp(8),0,0);
         totalIncome=txt("Gelir  0",16,0xFF13835D,true);totalExpense=txt("Gider  0",16,0xFFD94A4A,true);totalNet=txt("Net  0",18,0xFF4DB5FF,true);
-        vals.addView(totalIncome,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        vals.addView(totalExpense,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        vals.addView(totalNet,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
+        vals.addView(totalIncome,valueParams());
+        vals.addView(totalExpense,valueParams());
+        vals.addView(totalNet,valueParams());
         box.addView(vals);box.setOnClickListener(v->showGeneralBreakdown());return box;
     }
 
@@ -177,10 +203,10 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
                 double[] v=me.getValue();yi+=v[0];yea+=v[1];double net=v[0]-v[1];
                 LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(12),dp(10),dp(12),dp(10));card.setBackground(cardBg(0xFFFFFFFF));
                 String mn=monthNames[me.getKey()];mn=mn.substring(0,1).toUpperCase(new Locale("tr","TR"))+mn.substring(1);card.addView(txt(mn,16,0xFF173C35,true));
-                LinearLayout vals=new LinearLayout(this);vals.setOrientation(LinearLayout.HORIZONTAL);vals.setPadding(0,dp(6),0,0);
-                vals.addView(txt("Ciro\n"+money.format(v[0]),13,0xFF13835D,true),new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-                vals.addView(txt("Gider\n"+money.format(v[1]),13,0xFFD94A4A,true),new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-                vals.addView(txt("Net\n"+money.format(net),13,net>=0?0xFF13835D:0xFFD94A4A,true),new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
+                LinearLayout vals=new LinearLayout(this);vals.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);vals.setPadding(0,dp(6),0,0);
+                vals.addView(txt("Ciro\n"+money.format(v[0]),13,0xFF13835D,true),valueParams());
+                vals.addView(txt("Gider\n"+money.format(v[1]),13,0xFFD94A4A,true),valueParams());
+                vals.addView(txt("Net\n"+money.format(net),13,net>=0?0xFF13835D:0xFFD94A4A,true),valueParams());
                 card.addView(vals);content.addView(card,mp(0,0,0,6));
             }
             double yn=yi-yea;LinearLayout yt=new LinearLayout(this);yt.setOrientation(LinearLayout.VERTICAL);yt.setPadding(dp(14),dp(11),dp(14),dp(11));GradientDrawable yg=bg(0xFFEAF4F0,14);yg.setStroke(dp(1),0xFFB8D7CD);yt.setBackground(yg);
@@ -210,10 +236,10 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
             LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(12),dp(14),dp(12));card.setBackground(cardBg(0xFFFFFFFF));
             String label=monthFmt.format(new Date(monthDates.get(entry.getKey())));label=label.substring(0,1).toUpperCase(new Locale("tr","TR"))+label.substring(1);
             card.addView(txt(label,17,0xFF173C35,true));
-            LinearLayout vals=new LinearLayout(this);vals.setOrientation(LinearLayout.HORIZONTAL);vals.setPadding(0,dp(7),0,0);
-            vals.addView(txt("Ciro\n"+money.format(v[0]),14,0xFF13835D,true),new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-            vals.addView(txt("Gider\n"+money.format(v[1]),14,0xFFD94A4A,true),new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-            TextView netView=txt("Net\n"+money.format(net),14,net>=0?0xFF13835D:0xFFD94A4A,true);vals.addView(netView,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
+            LinearLayout vals=new LinearLayout(this);vals.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);vals.setPadding(0,dp(7),0,0);
+            vals.addView(txt("Ciro\n"+money.format(v[0]),14,0xFF13835D,true),valueParams());
+            vals.addView(txt("Gider\n"+money.format(v[1]),14,0xFFD94A4A,true),valueParams());
+            TextView netView=txt("Net\n"+money.format(net),14,net>=0?0xFF13835D:0xFFD94A4A,true);vals.addView(netView,valueParams());
             card.addView(vals);content.addView(card,mp(0,0,0,8));
         }
         ScrollView sv=new ScrollView(this);sv.addView(content);
@@ -223,7 +249,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void switchBusiness(String b){business=b;titleBusiness.setText(b);boolean first=B1.equals(b);b1.setBackground(bg(first?0xFF1F9D72:0xFFE6ECE9,14));b1.setTextColor(first?Color.WHITE:0xFF24413B);b2.setBackground(bg(!first?0xFF1F9D72:0xFFE6ECE9,14));b2.setTextColor(!first?Color.WHITE:0xFF24413B);refresh();}
 
     private void refresh(){ Calendar now=Calendar.getInstance(); long day=startOfDay(now).getTimeInMillis();Calendar d2=(Calendar)startOfDay(now).clone();d2.add(Calendar.DAY_OF_MONTH,1);long dayEnd=d2.getTimeInMillis();Calendar ws=startOfWeek(now);Calendar we=(Calendar)ws.clone();we.add(Calendar.DAY_OF_MONTH,7);Calendar ms=startOfMonth(now);Calendar me=(Calendar)ms.clone();me.add(Calendar.MONTH,1);double[] selected=dashboardPeriod==0?db.stats(business,day,dayEnd):dashboardPeriod==1?db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()):dashboardPeriod==2?db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()):db.totalStats(business);long expenseStart=dashboardPeriod==0?day:dashboardPeriod==1?ws.getTimeInMillis():dashboardPeriod==2?ms.getTimeInMillis():0;long expenseEnd=dashboardPeriod==0?dayEnd:dashboardPeriod==1?we.getTimeInMillis():dashboardPeriod==2?me.getTimeInMillis():0;selected[1]=db.expenseSum(business,expenseStart,expenseEnd);selected[2]=selected[0]-selected[1];setStats(selected,dayIncome,dayExpense,dayNet);setStats(db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()),weekIncome,weekExpense,weekNet);setStats(db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()),monthIncome,monthExpense,monthNet);setStats(db.totalStats(business),totalIncome,totalExpense,totalNet);chart.setData(db.lastSixMonths(business));refreshList();}
-    private void setStats(double[] s,TextView i,TextView e,TextView n){i.setText(money.format(s[0]));e.setText(money.format(s[1]));n.setText(money.format(s[2]));i.setTextSize(18);e.setTextSize(18);n.setTextSize(18);i.setSingleLine(true);e.setSingleLine(true);n.setSingleLine(true);n.setTextColor(s[2]>=0?0xFF13835D:0xFFD94A4A);}
+    private void setStats(double[] s,TextView i,TextView e,TextView n){i.setText(money.format(s[0]));e.setText(money.format(s[1]));n.setText(money.format(s[2]));i.setTextSize(18);e.setTextSize(18);n.setTextSize(18);i.setSingleLine(false);e.setSingleLine(false);n.setSingleLine(false);n.setTextColor(s[2]>=0?0xFF13835D:0xFFD94A4A);}
     private void refreshList(){
         if(adapter==null)return;
         long[] r=filterRange();adapter.setItems(db.list(business,search==null?"":search.getText().toString(),r[0],r[1],0));resizeRecordList();
@@ -427,8 +453,8 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private String fmtDate(long m){return new SimpleDateFormat("dd.MM.yyyy",Locale.US).format(new Date(m));}
     private String csv(String s){if(s==null)s="";return "\""+s.replace("\"","\"\"")+"\"";}
     private String safe(String s){return s.replace(" ","_").replaceAll("[^A-Za-z0-9_ğüşöçıİĞÜŞÖÇ]","");}
-    private TextView txt(String s,int sp,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(color);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
-    private Button button(String s,int bg,int fg){Button b=new Button(this);b.setText(s);b.setTextColor(fg);b.setTextSize(13);b.setAllCaps(false);b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);b.setBackground(bg(bg,14));return b;}
+    private TextView txt(String s,int sp,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setSingleLine(false);t.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);t.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);t.setTextColor(color);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
+    private Button button(String s,int bg,int fg){Button b=new Button(this);b.setText(s);b.setTextColor(fg);b.setTextSize(13);b.setAllCaps(false);b.setSingleLine(false);b.setMaxLines(Integer.MAX_VALUE);b.setMinWidth(0);b.setMinimumWidth(0);b.setPadding(dp(10),dp(10),dp(10),dp(10));b.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);b.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);b.setBackground(bg(bg,14));return b;}
     private GradientDrawable bg(int color,int radius){GradientDrawable g=new GradientDrawable();g.setColor(color);g.setCornerRadius(dp(radius));return g;}
     private GradientDrawable cardBg(int color){GradientDrawable g=bg(color,16);g.setStroke(dp(1),0xFFE2EAE7);return g;}
     private LinearLayout.LayoutParams mp(int l,int t,int r,int b){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);p.setMargins(dp(l),dp(t),dp(r),dp(b));return p;}
