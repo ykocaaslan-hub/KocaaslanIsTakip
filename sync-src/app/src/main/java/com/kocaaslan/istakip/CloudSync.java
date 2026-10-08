@@ -65,7 +65,7 @@ public final class CloudSync {
         m.put("business",t.business);m.put("type",t.type);m.put("amount",t.amount);m.put("category",t.category);m.put("note",t.note);m.put("date",t.date);m.put("updatedAt",t.updatedAt);
         final boolean[] finished={false};
         rows().document(t.syncId).set(m).addOnCompleteListener(x->{ finished[0]=true; if(cb!=null)cb.done(x.isSuccessful(),x.getException()==null?null:(x.getException().getClass().getSimpleName()+": "+x.getException().getMessage())); });
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{ if(!finished[0]&&cb!=null)cb.done(false,"30 saniye içinde Firebase yanıt vermedi. Ağ/Firestore bağlantısı beklemede."); },30000);
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{ if(!finished[0]){ finished[0]=true; if(cb!=null)cb.done(false,"30 saniye içinde Firebase yanıt vermedi. Ağ/Firestore bağlantısı beklemede."); } },30000);
     }
     public static void delete(String syncId){ if(signedIn()&&syncId!=null) rows().document(syncId).delete(); }
 
@@ -80,21 +80,9 @@ public final class CloudSync {
         return rows().addSnapshotListener((snap,e)->{
             if(e!=null||snap==null)return;
 
-            // 1.4.2: Bulutta ayni kaydin tekrar tekrar olusmasini temizle.
-            Map<String,DocumentSnapshot> keep=new LinkedHashMap<>();
+            // Never delete cloud records by matching content: legitimate separate transactions
+            // may have identical amounts, notes and timestamps.
             for(DocumentSnapshot d:snap.getDocuments()){
-                String key=fingerprint(d);
-                DocumentSnapshot old=keep.get(key);
-                if(old==null) keep.put(key,d);
-                else {
-                    Long oldUpdated=old.getLong("updatedAt"),newUpdated=d.getLong("updatedAt");
-                    long ou=oldUpdated==null?0:oldUpdated, nu=newUpdated==null?0:newUpdated;
-                    if(nu<ou){ rows().document(old.getId()).delete(); keep.put(key,d); }
-                    else rows().document(d.getId()).delete();
-                }
-            }
-
-            for(DocumentSnapshot d:keep.values()){
                 String business=d.getString("business"),type=d.getString("type"),category=d.getString("category"),note=d.getString("note");
                 Double amount=d.getDouble("amount");Long date=d.getLong("date"),updated=d.getLong("updatedAt");
                 if(business!=null&&type!=null&&amount!=null&&date!=null)
