@@ -12,7 +12,7 @@ import java.util.List;
 
 public class DbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kocaaslan_is_takip.db";
-    private static final int DB_VERSION = 2;
+    private static final int DB_VERSION = 3;
     private static final String T = "transactions";
 
     public DbHelper(Context c) { super(c, DB_NAME, null, DB_VERSION); }
@@ -30,6 +30,7 @@ public class DbHelper extends SQLiteOpenHelper {
                 "updated_at INTEGER NOT NULL DEFAULT 0," +
                 "sync_state INTEGER NOT NULL DEFAULT 1)");
         db.execSQL("CREATE INDEX idx_business_date ON " + T + "(business,date)");
+        createOutbox(db);
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -38,8 +39,26 @@ public class DbHelper extends SQLiteOpenHelper {
             db.execSQL("ALTER TABLE " + T + " ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0");
             db.execSQL("ALTER TABLE " + T + " ADD COLUMN sync_state INTEGER NOT NULL DEFAULT 1");
             db.execSQL("UPDATE " + T + " SET sync_id=lower(hex(randomblob(16))), updated_at=strftime('%s','now')*1000, sync_state=1 WHERE sync_id IS NULL");
-            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_id ON " + T + "(sync_id)");
+
         }
+        if (oldVersion < 3) createOutbox(db);
+    }
+
+    private static void createOutbox(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS deleted_transactions (sync_id TEXT PRIMARY KEY, updated_at INTEGER NOT NULL, sync_state INTEGER NOT NULL DEFAULT 1)");
+    }
+
+    @Override public void onOpen(SQLiteDatabase db) {
+        super.onOpen(db);
+        db.beginTransaction();
+        try {
+            createOutbox(db);
+            // Repair missing identities, preserving every row (including identical transactions).
+            db.execSQL("UPDATE " + T + " SET sync_id=lower(hex(randomblob(16))), sync_state=1 WHERE sync_id IS NULL OR trim(sync_id)=''");
+            db.execSQL("UPDATE " + T + " SET sync_id=lower(hex(randomblob(16))), sync_state=1 WHERE id NOT IN (SELECT MIN(id) FROM " + T + " GROUP BY sync_id)");
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_id ON " + T + "(sync_id)");
+            db.setTransactionSuccessful();
+        } finally { db.endTransaction(); }
     }
 
     public long add(String business, String type, double amount, String category, String note, long date) {
@@ -52,31 +71,46 @@ public class DbHelper extends SQLiteOpenHelper {
 
     public void update(Transaction t) {
         ContentValues v = new ContentValues();
-        v.put("amount",t.amount); v.put("category",t.category); v.put("note",t.note); v.put("date",t.date); v.put("updated_at",System.currentTimeMillis()); v.put("sync_state",1);
+        v.put("amount",t.amount); v.put("category",t.category); v.put("note",t.note); v.put("date",t.date); v.put("updated_at",nextVersion(byId(t.id))); v.put("sync_state",1);
         if(getWritableDatabase().update(T,v,"id=?",new String[]{String.valueOf(t.id)})!=1)
             throw new IllegalStateException("Kayıt güncellenemedi");
     }
 
-    public void replaceAll(List<Transaction> rows) {
+    private long nextVersion(Transaction t) {
+        return Math.max(System.currentTimeMillis(), t == null ? 1 : t.updatedAt + 1);
+    }
+
+    // Compatibility entry point: restores now merge instead of clearing existing records.
+    public void replaceAll(List<Transaction> rows) { mergeBackup(rows); }
+
+    public void mergeBackup(List<Transaction> rows) {
         SQLiteDatabase database=getWritableDatabase();
         database.beginTransaction();
         try {
-            clearAll();
-            for(Transaction t:rows) {
-                ContentValues v=new ContentValues();
-                v.put("business",t.business);v.put("type",t.type);v.put("amount",t.amount);
-                v.put("category",t.category);v.put("note",t.note);v.put("date",t.date);
-                v.put("sync_id",t.syncId==null||t.syncId.trim().isEmpty()
-                        ?java.util.UUID.randomUUID().toString():t.syncId);
+            for (Transaction t:rows) {
+                String identity=t.syncId==null||t.syncId.trim().isEmpty()
+                        ?java.util.UUID.randomUUID().toString():t.syncId;
+                ContentValues v=values(t); v.put("sync_id",identity);
                 v.put("updated_at",t.updatedAt>0?t.updatedAt:System.currentTimeMillis());
                 v.put("sync_state",1);
-                database.insertOrThrow(T,null,v);
+                // A backup may add absent IDs, never overwrite a current row or undo a deletion.
+                if (!hasDeletion(identity)) database.insertWithOnConflict(T,null,v,SQLiteDatabase.CONFLICT_IGNORE);
             }
             database.setTransactionSuccessful();
         } finally { database.endTransaction(); }
     }
 
-    public void delete(long id) { getWritableDatabase().delete(T, "id=?", new String[]{String.valueOf(id)}); }
+    public void delete(long id) {
+        SQLiteDatabase database=getWritableDatabase(); database.beginTransaction();
+        try {
+            Transaction t=byId(id);
+            if(t!=null) {
+                recordDeletion(t.syncId,nextVersion(t),1);
+                database.delete(T,"id=?",new String[]{String.valueOf(id)});
+            }
+            database.setTransactionSuccessful();
+        } finally { database.endTransaction(); }
+    }
 
     public void clearAll() { getWritableDatabase().delete(T, null, null); }
 
@@ -153,25 +187,75 @@ public class DbHelper extends SQLiteOpenHelper {
         return null;
     }
 
-    public void upsertFromCloud(Transaction t) {
+    private static ContentValues values(Transaction t) {
         ContentValues v=new ContentValues();
-        v.put("business",t.business);v.put("type",t.type);v.put("amount",t.amount);v.put("category",t.category);v.put("note",t.note);v.put("date",t.date);
-        v.put("sync_id",t.syncId);v.put("updated_at",t.updatedAt);v.put("sync_state",0);
-        SQLiteDatabase database=getWritableDatabase();
-        int n=database.update(T,v,"sync_id=?",new String[]{t.syncId});
-        if(n==0){
-            // Geri yuklenen yedekte ayni kayit varsa yeni bir kopya eklemek yerine
-            // mevcut kaydi bulut kimligiyle eslestir.
-            Cursor c=database.rawQuery("SELECT id FROM "+T+" WHERE business=? AND type=? AND amount=? AND IFNULL(category,'')=? AND IFNULL(note,'')=? AND date=? LIMIT 1",
-                    new String[]{t.business,t.type,String.valueOf(t.amount),t.category==null?"":t.category,t.note==null?"":t.note,String.valueOf(t.date)});
-            try {
-                if(c.moveToFirst()) database.update(T,v,"id=?",new String[]{String.valueOf(c.getLong(0))});
-                else database.insertOrThrow(T,null,v);
-            } finally { c.close(); }
-        }
+        v.put("business",t.business);v.put("type",t.type);v.put("amount",t.amount);
+        v.put("category",t.category);v.put("note",t.note);v.put("date",t.date);
+        v.put("sync_id",t.syncId);v.put("updated_at",t.updatedAt);
+        return v;
     }
 
-    public void deleteBySyncId(String syncId) { if(syncId!=null)getWritableDatabase().delete(T,"sync_id=?",new String[]{syncId}); }
+    private boolean hasDeletion(String id) {
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT sync_id FROM deleted_transactions WHERE sync_id=?",new String[]{id})) { return c.moveToFirst(); }
+    }
+
+    public void upsertFromCloud(Transaction t) {
+        if(t.syncId==null||t.syncId.trim().isEmpty())throw new IllegalArgumentException("Missing syncId");
+        SQLiteDatabase database=getWritableDatabase(); database.beginTransaction();
+        try {
+            if(!hasDeletion(t.syncId)) {
+                ContentValues v=values(t);v.put("sync_state",0);
+                // Dirty local edits cannot be replaced by cached or older cloud snapshots.
+                int n=database.update(T,v,"sync_id=? AND sync_state=0 AND updated_at<=?",new String[]{t.syncId,String.valueOf(t.updatedAt)});
+                if(n==0)database.insertWithOnConflict(T,null,v,SQLiteDatabase.CONFLICT_IGNORE);
+            }
+            database.setTransactionSuccessful();
+        } finally { database.endTransaction(); }
+    }
+
+    public List<Transaction> pending() {
+        List<Transaction> rows=new ArrayList<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM "+T+" WHERE sync_state=1",null)) {
+            while(c.moveToNext())rows.add(new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getDouble(3),c.getString(4),c.getString(5),c.getLong(6),c.getString(7),c.getLong(8)));
+        }
+        return rows;
+    }
+
+    public void markSynced(String id,long version) {
+        ContentValues v=new ContentValues();v.put("sync_state",0);
+        getWritableDatabase().update(T,v,"sync_id=? AND updated_at=?",new String[]{id,String.valueOf(version)});
+    }
+
+    private void recordDeletion(String id,long version,int state) {
+        ContentValues v=new ContentValues();v.put("sync_id",id);v.put("updated_at",version);v.put("sync_state",state);
+        getWritableDatabase().insertWithOnConflict("deleted_transactions",null,v,SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    public java.util.Map<String,Long> pendingDeletions() {
+        java.util.Map<String,Long> rows=new java.util.HashMap<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT sync_id,updated_at FROM deleted_transactions WHERE sync_state=1",null)) {
+            while(c.moveToNext())rows.put(c.getString(0),c.getLong(1));
+        }
+        return rows;
+    }
+
+    public void markDeletionSynced(String id,long version) {
+        ContentValues v=new ContentValues();v.put("sync_state",0);
+        getWritableDatabase().update("deleted_transactions",v,"sync_id=? AND updated_at=?",new String[]{id,String.valueOf(version)});
+    }
+
+    public void applyCloudDeletion(String id,long version) {
+        SQLiteDatabase database=getWritableDatabase();database.beginTransaction();
+        try {
+            try(Cursor c=database.rawQuery("SELECT sync_state,updated_at FROM "+T+" WHERE sync_id=?",new String[]{id})) {
+                if(c.moveToFirst() && (c.getInt(0)==1 || c.getLong(1)>version)) return;
+            }
+            // Only explicit tombstones remove rows; absence from a snapshot never does.
+            if(!hasDeletion(id))recordDeletion(id,version,0);
+            database.delete(T,"sync_id=? AND sync_state=0 AND updated_at<=?",new String[]{id,String.valueOf(version)});
+            database.setTransactionSuccessful();
+        } finally { database.endTransaction(); }
+    }
 
     public double[][] lastSixMonths(String business) {
         double[][] r = new double[6][2];
@@ -186,3 +270,4 @@ public class DbHelper extends SQLiteOpenHelper {
         return r;
     }
 }
+

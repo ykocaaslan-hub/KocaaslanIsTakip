@@ -5,7 +5,10 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, fix/issue-3-firebase-sync]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -16,47 +19,58 @@ jobs:
     steps:
       - name: Dosyalari al
         uses: actions/checkout@v4
-
       - name: 1.6.7 kaynak hazirla
         run: |
           cp -R sync-src app
-          sed -i "s/versionCode 102/versionCode 127/" app/app/build.gradle
-          sed -i "s/versionName '1.4.2'/versionName '1.6.7'/" app/app/build.gradle
           python3 scripts/patch145.py
-
-      - name: Imzalama dosyasini yerlestir
-        if: github.event_name != 'pull_request'
-        run: cp kocaaslan-release.jks app/app/kocaaslan-release.jks
-
       - name: Java 17 kur
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Gradle kur
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-
       - name: Android SDK paketlerini kur
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0"
-
-      - name: APK olustur
+      - name: Regresyon testleri ve Debug APK
+        run: cd app && gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Imzalama dosyasini yerlestir
+        if: github.event_name != 'pull_request'
+        run: cp kocaaslan-release.jks app/app/kocaaslan-release.jks
+      - name: Imzali release APK olustur
         if: github.event_name != 'pull_request'
         env:
           KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
-        run: cd app && gradle --no-daemon :app:assembleRelease
-
-      - name: Debug APK derleme kontrolu
-        if: github.event_name == 'pull_request'
-        run: cd app && gradle --no-daemon :app:assembleDebug
-
+        run: |
+          test -n "$KOCAASLAN_SIGNING_PASSWORD" || { echo "Release signing secret is not configured"; exit 1; }
+          cd app
+          gradle --no-daemon :app:assembleRelease
+      - name: APK surum ve imza kontrolu
+        if: github.event_name != 'pull_request'
+        run: |
+          APK=app/app/build/outputs/apk/release/app-release.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" > /tmp/apk-badging.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          metadata = Path('/tmp/apk-badging.txt').read_text().splitlines()[0]
+          assert "versionCode='127'" in metadata and "versionName='1.6.7'" in metadata, metadata
+          print('APK signature verified; versionName=1.6.7, versionCode=127')
+          PY
+      - name: Test raporlarini kaydet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-test-reports
+          path: app/app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
       - name: APK dosyasini kaydet
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: KocaaslanIsTakip-1.6.7-CiftYonlu-Senkron-APK
           path: app/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

@@ -14,7 +14,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
-import com.google.firebase.firestore.ListenerRegistration;
+
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -33,19 +33,21 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private Button b1,b2; private EditText search; private Spinner filter; private ChartView chart; private TransactionAdapter adapter; private ListView list;
     private NumberFormat money; private SharedPreferences prefs;
     private long exportStart=0, exportEnd=0, customStart=0, customEnd=0;
-    private String savedSearch=""; private int savedFilter=0;
-    private ListenerRegistration syncListener;
+    private String savedSearch=""; private int savedFilter=1;
+    private CloudSync.Session syncListener;
+    private boolean destroyed=false;
 
     @Override public void onCreate(Bundle b){ super.onCreate(b); db=new DbHelper(this); prefs=getSharedPreferences("settings",MODE_PRIVATE); money=NumberFormat.getCurrencyInstance(new Locale("tr","TR"));
-        if(b!=null){business=b.getString("business",B1);savedSearch=b.getString("search","");savedFilter=b.getInt("filter",0);customStart=b.getLong("customStart",0);customEnd=b.getLong("customEnd",0);exportStart=b.getLong("exportStart",0);exportEnd=b.getLong("exportEnd",0);}
+        if(b!=null){business=b.getString("business",B1);savedSearch=b.getString("search","");savedFilter=b.getInt("filter",1);dashboardPeriod=b.getInt("dashboardPeriod",0);customStart=b.getLong("customStart",0);customEnd=b.getLong("customEnd",0);exportStart=b.getLong("exportStart",0);exportEnd=b.getLong("exportEnd",0);}
         String pin=prefs.getString("pin",""); buildUi(); try { if(CloudSync.signedIn()) startCloudSync(); else promptCloudLogin(pin); } catch(Exception e) { Toast.makeText(this,"Senkronizasyon şu anda kullanılamıyor; yerel kayıtlarınız korunuyor.",Toast.LENGTH_LONG).show(); }
     }
 
     @Override protected void onSaveInstanceState(Bundle state){
-        super.onSaveInstanceState(state);state.putString("business",business);state.putString("search",search==null?savedSearch:search.getText().toString());state.putInt("filter",filter==null?savedFilter:filter.getSelectedItemPosition());state.putLong("customStart",customStart);state.putLong("customEnd",customEnd);state.putLong("exportStart",exportStart);state.putLong("exportEnd",exportEnd);
+        super.onSaveInstanceState(state);state.putInt("dashboardPeriod",dashboardPeriod);state.putString("business",business);state.putString("search",search==null?savedSearch:search.getText().toString());state.putInt("filter",filter==null?savedFilter:filter.getSelectedItemPosition());state.putLong("customStart",customStart);state.putLong("customEnd",customEnd);state.putLong("exportStart",exportStart);state.putLong("exportEnd",exportEnd);
     }
-    @Override protected void onResume(){super.onResume();if(adapter!=null)refresh();}
-    @Override protected void onDestroy(){if(syncListener!=null)syncListener.remove();if(db!=null)db.close();super.onDestroy();}
+    @Override protected void onResume(){super.onResume();if(adapter!=null)refresh();if(db!=null&&CloudSync.signedIn()&&syncListener==null)startCloudSync();}
+    @Override protected void onStop(){if(syncListener!=null){syncListener.remove();syncListener=null;}super.onStop();}
+    @Override protected void onDestroy(){destroyed=true;if(syncListener!=null)syncListener.remove();if(db!=null)db.close();super.onDestroy();}
 
 
     private void promptCloudLogin(String pin){
@@ -61,17 +63,15 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     }
 
     private void startCloudSync(){
-        // 1.4.2: acilista tum yerel kayitlari tekrar yukleme; bu eski surumde kopya uretiyordu.
+        if(destroyed||!CloudSync.signedIn())return;
         if(syncListener!=null)syncListener.remove();
-        syncListener=CloudSync.listen(db,()->runOnUiThread(()->{if(adapter!=null)refresh();}));
+        syncListener=CloudSync.listen(db,()->{if(!destroyed&&adapter!=null)refresh();},(ok,err)->{
+            if(!destroyed&&!ok)Toast.makeText(this,"Senkron bekliyor: "+err+". Yerel kayıtlar korunuyor.",Toast.LENGTH_LONG).show();
+        });
     }
     private void syncTransaction(long id){
-        Transaction t=db.byId(id);
-        if(t==null){Toast.makeText(this,"Senkron: kayıt bulunamadı",Toast.LENGTH_LONG).show();return;}
-        CloudSync.upload(t,(ok,err)->runOnUiThread(()->{
-            if(ok){startCloudSync();refresh();}
-            new AlertDialog.Builder(this).setTitle(ok?"SENKRON BAŞARILI":"SENKRON HATASI").setMessage(ok?"Kayıt Firebase bulutuna gönderildi.":String.valueOf(err)).setPositiveButton("Tamam",null).show();
-        }));
+        if(syncListener!=null)syncListener.flush();
+        else if(CloudSync.signedIn())startCloudSync();
     }
 
     private void promptPin(String expected){
@@ -81,8 +81,11 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     }
 
     private void buildUi(){
-        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(14),dp(18),dp(28)); root.setBackgroundColor(0xFF031426); setContentView(root);
-        root.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(dp(18),insets.getSystemWindowInsetTop()+dp(14),dp(18),insets.getSystemWindowInsetBottom()+dp(28));return insets;});root.requestApplyInsets();
+        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(14),dp(18),dp(28)); root.setBackgroundColor(0xFF031426); LinearLayout frame=new LinearLayout(this);frame.setOrientation(LinearLayout.VERTICAL);frame.setBackgroundColor(0xFF031426);
+        ScrollView mainScroll=new ScrollView(this);mainScroll.setFillViewport(true);
+        mainScroll.addView(root,new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+        frame.addView(mainScroll,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));setContentView(frame);
+        frame.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});frame.requestApplyInsets();
 
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(16),dp(12),dp(16),dp(12));GradientDrawable hg=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xFF06213D,0xFF0B3764});hg.setCornerRadius(dp(22));header.setBackground(hg);header.setElevation(dp(10));
         TextView menu=txt("☰",30,Color.WHITE,true);header.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(52)));
@@ -96,7 +99,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
         titleBusiness=txt(business,1,0xFF031426,false);titleBusiness.setVisibility(View.GONE);root.addView(titleBusiness,new LinearLayout.LayoutParams(1,1));
 
-        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);String[] tabNames={"▣  Bugün","▣  Bu Hafta","▣  Bu Ay","▣  Tümü"};for(int k=0;k<4;k++){final int period=k;Button tb=button(tabNames[k],k==dashboardPeriod?0xFFFFD21F:0xFF082846,k==dashboardPeriod?0xFF061A33:Color.WHITE);tb.setTextSize(14);tb.setOnClickListener(v->{dashboardPeriod=period;filter.setSelection(period==3?0:period+1);refresh();buildUi();refresh();});LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(52),1);if(k>0)tp.setMargins(dp(4),0,0,0);tabs.addView(tb,tp);}root.addView(tabs,mp(0,0,0,12));
+        LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);String[] tabNames={"▣  Bugün","▣  Bu Hafta","▣  Bu Ay","▣  Tümü"};for(int k=0;k<4;k++){final int period=k;Button tb=button(tabNames[k],k==dashboardPeriod?0xFFFFD21F:0xFF082846,k==dashboardPeriod?0xFF061A33:Color.WHITE);tb.setTextSize(14);tb.setOnClickListener(v->{savedSearch=search.getText().toString();dashboardPeriod=period;savedFilter=period==3?0:period+1;buildUi();});LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(52),1);if(k>0)tp.setMargins(dp(4),0,0,0);tabs.addView(tb,tp);}root.addView(tabs,mp(0,0,0,12));
 
         LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);
         dayIncome=summaryCard(stats,"Gelir","₺0",0xFF00D968,"▥");dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF3B4D,"▥");dayNet=summaryCard(stats,"Net","₺0",0xFF1B8CFF,"●");
@@ -120,7 +123,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
         list=new ListView(this);list.setDivider(null);list.setDividerHeight(0);list.setNestedScrollingEnabled(false);adapter=new TransactionAdapter(this,this);list.setAdapter(adapter);list.setOnItemClickListener((parent,view,position,id)->showForm(adapter.getItem(position).type,adapter.getItem(position)));LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(360));root.addView(list,listParams);
 
-        LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);String[] nav={"⌂\nAna Sayfa","☷\nKayıtlar","▥\nRaporlar","◔\nGenel Toplamlar"};for(int k=0;k<nav.length;k++){Button nb=button(nav[k],k==0?0xFF0B2C50:0xFF061C34,k==0?0xFFFFD21F:Color.WHITE);nb.setTextSize(13);if(k==1)nb.setOnClickListener(v->{list.requestFocus();});else if(k==2)nb.setOnClickListener(v->showCategoryReport());else if(k==3)nb.setOnClickListener(v->showGeneralBreakdown());bottom.addView(nb,new LinearLayout.LayoutParams(0,dp(70),1));}root.addView(bottom,mp(0,10,0,8));
+        LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);String[] nav={"⌂\nAna Sayfa","☷\nKayıtlar","▥\nRaporlar","◔\nGenel Toplamlar"};for(int k=0;k<nav.length;k++){Button nb=button(nav[k],k==0?0xFF0B2C50:0xFF061C34,k==0?0xFFFFD21F:Color.WHITE);nb.setTextSize(13);if(k==0)nb.setOnClickListener(v->mainScroll.smoothScrollTo(0,0));else if(k==1)nb.setOnClickListener(v->mainScroll.smoothScrollTo(0,list.getTop()));else if(k==2)nb.setOnClickListener(v->showCategoryReport());else if(k==3)nb.setOnClickListener(v->showGeneralBreakdown());bottom.addView(nb,new LinearLayout.LayoutParams(0,dp(70),1));}frame.addView(bottom,mp(0,0,0,0));
 
         LinearLayout acts=new LinearLayout(this);acts.setOrientation(LinearLayout.HORIZONTAL);Button csv=button("CSV / Excel",0xFF0B2C50,Color.WHITE);Button backup=button("Yedekle",0xFF0B2C50,Color.WHITE);Button restore=button("Geri Yükle",0xFF0B2C50,Color.WHITE);csv.setOnClickListener(v->beginCsv());backup.setOnClickListener(v->beginBackup());restore.setOnClickListener(v->beginRestore());acts.addView(csv,new LinearLayout.LayoutParams(0,dp(46),1));acts.addView(backup,new LinearLayout.LayoutParams(0,dp(46),1));acts.addView(restore,new LinearLayout.LayoutParams(0,dp(46),1));root.addView(acts);
         search.setText(savedSearch);filter.setSelection(savedFilter);switchBusiness(business);
@@ -220,7 +223,14 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void resizeRecordList(){
         if(list==null||adapter==null)return;
         int count=adapter.getCount();
-        int wanted=Math.max(dp(180),count*dp(104)+dp(40));
+        int width=Math.max(1,getResources().getDisplayMetrics().widthPixels-dp(36));
+        int wanted=0;
+        for(int i=0;i<count;i++){
+            View row=adapter.getView(i,null,list);
+            row.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));
+            wanted+=row.getMeasuredHeight();
+        }
+        wanted=Math.max(dp(180),wanted+list.getPaddingTop()+list.getPaddingBottom());
         ViewGroup.LayoutParams p=list.getLayoutParams();
         if(p!=null){p.height=wanted;list.setLayoutParams(p);}
         list.setNestedScrollingEnabled(false);
@@ -230,14 +240,14 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void showAdd(String type){showForm(type,null);}
     private void showForm(String type,Transaction existing){ final Calendar selected=Calendar.getInstance();if(existing!=null)selected.setTimeInMillis(existing.date); LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(8),dp(20),0);TextView who=txt(business,15,0xFF1F5A4D,true);form.addView(who);EditText amount=new EditText(this);amount.setHint("Tutar (₺)");amount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);form.addView(amount);Spinner cat=new Spinner(this);String[] incomeCats={"Satış","Hizmet","Diğer Gelir"};String[] expenseCats={"Mal Alımı","Kira","Personel","Fatura","Vergi","Ulaşım","Bakım/Onarım","Diğer Gider"};cat.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,"Gelir".equals(type)?incomeCats:expenseCats));form.addView(cat);EditText note=new EditText(this);note.setHint("Açıklama (isteğe bağlı)");form.addView(note);Button dateBtn=button("Tarih: "+fmtDate(selected.getTimeInMillis()),0xFFE8F0ED,0xFF24413B);dateBtn.setOnClickListener(v->new DatePickerDialog(this,(view,y,m,d)->{selected.set(y,m,d,12,0,0);selected.set(Calendar.MILLISECOND,0);dateBtn.setText("Tarih: "+fmtDate(selected.getTimeInMillis()));},selected.get(Calendar.YEAR),selected.get(Calendar.MONTH),selected.get(Calendar.DAY_OF_MONTH)).show());form.addView(dateBtn,mp(0,8,0,0));if(existing!=null){amount.setText(Double.toString(existing.amount));note.setText(existing.note);String[] cats="Gelir".equals(type)?incomeCats:expenseCats;for(int k=0;k<cats.length;k++)if(cats[k].equals(existing.category))cat.setSelection(k);}AlertDialog dlg=new AlertDialog.Builder(this).setTitle(type+(existing==null?" Ekle":" Düzenle")).setView(form).setNegativeButton("Vazgeç",null).setPositiveButton("Kaydet",null).create();dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{String a=amount.getText().toString().trim().replace(",", ".");double val=Double.parseDouble(a);if(val<=0||Double.isNaN(val)||Double.isInfinite(val))throw new IllegalArgumentException();if(existing==null){long newId=db.add(business,type,val,String.valueOf(cat.getSelectedItem()),note.getText().toString().trim(),selected.getTimeInMillis());syncTransaction(newId);}else{db.update(new Transaction(existing.id,existing.business,existing.type,val,String.valueOf(cat.getSelectedItem()),note.getText().toString().trim(),selected.getTimeInMillis()));syncTransaction(existing.id);}dlg.dismiss();refresh();}catch(IllegalArgumentException ex){amount.setError("Geçerli bir tutar girin");}catch(Exception ex){Toast.makeText(this,"Kayıt kaydedilemedi",Toast.LENGTH_LONG).show();}}));dlg.show();}
 
-    @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{Transaction local=db.byId(t.id);if(local!=null)CloudSync.delete(local.syncId);db.delete(t.id);refresh();}).show();}
+    @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{db.delete(t.id);syncTransaction(t.id);refresh();}).show();}
 
     private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v1.5.8").setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
     private void showSyncInfo(){
         String project=CloudSync.projectId(), email=CloudSync.email(), uid=CloudSync.uid();
         String msg="Durum: "+(CloudSync.signedIn()?"GİRİŞ YAPILMIŞ":"GİRİŞ YOK")+"\n\nFirebase Projesi: "+String.valueOf(project)+"\nE-posta: "+String.valueOf(email)+"\nUID: "+String.valueOf(uid)+"\n\nBağlantı testi için TEST ET düğmesine basın.";
         AlertDialog dlg=new AlertDialog.Builder(this).setTitle("Senkron Bilgisi").setMessage(msg).setNegativeButton("Kapat",null).setNeutralButton("Hesabı Yeniden Bağla",null).setPositiveButton("TEST ET",null).create();
-        dlg.setOnShowListener(x->{dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v->{dlg.dismiss();try{CloudSync.signOut();}catch(Exception ignored){}promptCloudLogin(prefs.getString("pin",""));});dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{dlg.setMessage("Firebase sunucusu test ediliyor...");CloudSync.diagnose((ok,error)->runOnUiThread(()->dlg.setMessage((ok?"BAŞARILI\n\n":"HATA\n\n")+String.valueOf(error))));});});dlg.show();
+        dlg.setOnShowListener(x->{dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v->{dlg.dismiss();try{if(syncListener!=null){syncListener.remove();syncListener=null;}CloudSync.signOut();}catch(Exception ignored){}promptCloudLogin(prefs.getString("pin",""));});dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{dlg.setMessage("Firebase sunucusu test ediliyor...");CloudSync.diagnose((ok,error)->runOnUiThread(()->dlg.setMessage((ok?"BAŞARILI\n\n":"HATA\n\n")+String.valueOf(error))));});});dlg.show();
     }
     private void setPin(){EditText in=new EditText(this);in.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_VARIATION_PASSWORD);in.setHint("4 haneli PIN");new AlertDialog.Builder(this).setTitle("PIN oluştur").setView(in).setNegativeButton("Vazgeç",null).setPositiveButton("Kaydet",(d,w)->{String p=in.getText().toString();if(p.matches("[0-9]{4}")){prefs.edit().putString("pin",p).apply();Toast.makeText(this,"PIN kaydedildi",Toast.LENGTH_SHORT).show();}else Toast.makeText(this,"PIN 4 rakam olmalı",Toast.LENGTH_LONG).show();}).show();}
 
@@ -247,7 +257,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;Uri u=data.getData();try{if(req==REQ_CSV)writeCsv(u);else if(req==REQ_BACKUP)writeBackup(u);else if(req==REQ_RESTORE)restoreBackup(u);}catch(Exception e){Toast.makeText(this,"İşlem tamamlanamadı: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
     private void writeCsv(Uri u)throws Exception{List<Transaction> rows=db.list(business,search==null?"":search.getText().toString(),exportStart,exportEnd,0);OutputStream os=getContentResolver().openOutputStream(u);OutputStreamWriter w=new OutputStreamWriter(os,StandardCharsets.UTF_8);w.write('\uFEFF');w.write("Tarih;İşletme;Tür;Kategori;Açıklama;Tutar\n");for(Transaction t:rows)w.write(csv(fmtDate(t.date))+";"+csv(t.business)+";"+csv(t.type)+";"+csv(t.category)+";"+csv(t.note)+";"+String.format(Locale.US,"%.2f",t.amount).replace('.',',')+"\n");w.close();Toast.makeText(this,"CSV kaydedildi",Toast.LENGTH_SHORT).show();}
-    private void writeBackup(Uri u)throws Exception{JSONArray a=new JSONArray();for(Transaction t:db.all()){JSONObject o=new JSONObject();o.put("business",t.business);o.put("type",t.type);o.put("amount",t.amount);o.put("category",t.category);o.put("note",t.note);o.put("date",t.date);a.put(o);}JSONObject root=new JSONObject();root.put("app","Kocaaslan İş Takip");root.put("version",1);root.put("transactions",a);OutputStream os=getContentResolver().openOutputStream(u);os.write(root.toString(2).getBytes(StandardCharsets.UTF_8));os.close();Toast.makeText(this,"Yedek kaydedildi",Toast.LENGTH_SHORT).show();}
+    private void writeBackup(Uri u)throws Exception{JSONArray a=new JSONArray();for(Transaction t:db.all()){JSONObject o=new JSONObject();o.put("business",t.business);o.put("type",t.type);o.put("amount",t.amount);o.put("category",t.category);o.put("note",t.note);o.put("date",t.date);o.put("syncId",t.syncId);o.put("updatedAt",t.updatedAt);a.put(o);}JSONObject root=new JSONObject();root.put("app","Kocaaslan İş Takip");root.put("version",2);root.put("transactions",a);OutputStream os=getContentResolver().openOutputStream(u);os.write(root.toString(2).getBytes(StandardCharsets.UTF_8));os.close();Toast.makeText(this,"Yedek kaydedildi",Toast.LENGTH_SHORT).show();}
     private void restoreBackup(Uri u)throws Exception{
         ByteArrayOutputStream out=new ByteArrayOutputStream();
         try(InputStream is=getContentResolver().openInputStream(u)){
@@ -255,14 +265,14 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
             while((n=is.read(buf))!=-1){if(out.size()+n>10*1024*1024)throw new IOException("Yedek çok büyük");out.write(buf,0,n);}
         }
         JSONObject root=new JSONObject(out.toString("UTF-8"));
-        if(!"Kocaaslan İş Takip".equals(root.getString("app"))||root.getInt("version")!=1)throw new IOException("Uyumsuz yedek");
+        if(!"Kocaaslan İş Takip".equals(root.getString("app"))||(root.getInt("version")!=1&&root.getInt("version")!=2))throw new IOException("Uyumsuz yedek");
         JSONArray a=root.getJSONArray("transactions");List<Transaction> rows=new ArrayList<>();
         for(int x=0;x<a.length();x++){
             JSONObject o=a.getJSONObject(x);String business=o.getString("business"),type=o.getString("type");double amount=o.getDouble("amount");long date=o.getLong("date");
             if((!B1.equals(business)&&!B2.equals(business))||(!"Gelir".equals(type)&&!"Gider".equals(type))||amount<=0||Double.isNaN(amount)||Double.isInfinite(amount)||date<=0)throw new IOException("Geçersiz kayıt: "+(x+1));
-            rows.add(new Transaction(0,business,type,amount,o.optString("category","Diğer"),o.optString("note",""),date));
+            rows.add(new Transaction(0,business,type,amount,o.optString("category","Diğer"),o.optString("note",""),date,o.optString("syncId","").trim().isEmpty()?java.util.UUID.nameUUIDFromBytes((out.toString("UTF-8")+"#"+x).getBytes(StandardCharsets.UTF_8)).toString():o.getString("syncId"),o.optLong("updatedAt",0)));
         }
-        new AlertDialog.Builder(this).setTitle("Yedeği geri yükle").setMessage("Mevcut kayıtlar silinip yedekteki "+rows.size()+" kayıt yüklenecek. Devam edilsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Yükle",(d,w)->{try{db.replaceAll(rows);refresh();Toast.makeText(this,"Yedek geri yüklendi",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"Yükleme başarısız; mevcut kayıtlar korundu",Toast.LENGTH_LONG).show();}}).show();
+        new AlertDialog.Builder(this).setTitle("Yedeği geri yükle").setMessage("Mevcut kayıtlar korunarak yedekteki "+rows.size()+" kayıt yüklenecek. Devam edilsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Yükle",(d,w)->{try{db.mergeBackup(rows);syncTransaction(0);refresh();Toast.makeText(this,"Yedek geri yüklendi",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"Yükleme başarısız; mevcut kayıtlar korundu",Toast.LENGTH_LONG).show();}}).show();
     }
 
     private void chooseRange(){
@@ -302,3 +312,4 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private LinearLayout.LayoutParams mp(int l,int t,int r,int b){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);p.setMargins(dp(l),dp(t),dp(r),dp(b));return p;}
     private int dp(int x){return (int)(x*getResources().getDisplayMetrics().density+.5f);}
 }
+
