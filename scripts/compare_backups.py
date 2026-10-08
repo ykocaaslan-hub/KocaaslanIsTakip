@@ -32,14 +32,17 @@ def load_backup(path):
             identity = None
         if not isinstance(category, str) or not isinstance(note, str) or (identity is not None and not isinstance(identity, str)):
             raise ValueError(f'Invalid text/identity in row {index}')
+        updated = item.get('updatedAt', 0)
+        if isinstance(updated, bool) or not isinstance(updated, int) or updated < 0:
+            raise ValueError(f'Invalid update version in row {index}')
         archived = item.get("archived", False) if data["version"] == 3 else False
         if data["version"] == 3 and (identity is None or "archived" not in item or not isinstance(archived, bool)):
             raise ValueError(f"Invalid archive state/identity in row {index}")
-        rows.append(dict(archived=archived, row=index, business=business, type=kind, amount=amount,
+        rows.append(dict(updatedAt=updated, archived=archived, row=index, business=business, type=kind, amount=amount,
                          category=category, note=note, date=int(date), syncId=identity,
                          # Exact compatibility with Java UUID.nameUUIDFromBytes(fileText + "#" + index).
                          app_legacy_import_syncId=str(uuid.UUID(bytes=hashlib.md5(raw + b'#' + str(index-1).encode(), usedforsecurity=False).digest(), version=3)) if identity is None else None))
-    return dict(file=Path(path).name, sha256=hashlib.sha256(raw).hexdigest(), rows=rows)
+    return dict(file=Path(path).name, sha256=hashlib.sha256(raw).hexdigest(), rows=rows, diagnostics=data.get('diagnostics', {}))
 
 
 def content_key(row):
@@ -81,6 +84,17 @@ def compare(current, reference):
                                identity_present_in_reference=bool(r['syncId'] and r['syncId'] in reference_ids),
                                matches_app_legacy_import_id=bool(r['syncId'] and r['syncId'] in legacy_ids)) for r in rows],
             reference_rows=[dict(row=r['row'], syncId=r['syncId'], app_legacy_import_syncId=r['app_legacy_import_syncId']) for r in original]))
+    current_ids = {r['syncId']: r for r in current['rows'] if r['syncId']}
+    reference_by_id = {r['syncId']: r for r in reference['rows'] if r['syncId']}
+    current_info, reference_info = current.get('diagnostics', {}), reference.get('diagnostics', {})
+    pending_now, pending_before = set(current_info.get('pendingSyncIds', [])), set(reference_info.get('pendingSyncIds', []))
+    differences = []
+    for identity in sorted(current_ids.keys() & reference_by_id.keys()):
+        a, b = current_ids[identity], reference_by_id[identity]
+        if (a.get('archived', False), a['updatedAt'], content_key(a)) != (b.get('archived', False), b['updatedAt'], content_key(b)):
+            differences.append(dict(syncId=identity, current_archived=a.get('archived', False), reference_archived=b.get('archived', False),
+                                    current_updatedAt=a['updatedAt'], reference_updatedAt=b['updatedAt'], content_equal=content_key(a)==content_key(b),
+                                    current_pending=identity in pending_now, reference_pending=identity in pending_before))
     return dict(
         read_only=True,
         note='Equal content does not prove duplication. Preserve legitimate repeated entries; review IDs and reference multiplicities before changing any data.',
@@ -91,6 +105,12 @@ def compare(current, reference):
         reference_archived_rows=sum(r.get('archived', False) for r in reference['rows']),
         exact_double_by_content=bool(before) and set(now) == set(before) and all(len(now[k]) == 2*len(v) for k, v in before.items()),
         equal_content_groups=groups,
+        identity_comparison=dict(shared_ids=len(current_ids.keys() & reference_by_id.keys()),
+                                 only_current=sorted(current_ids.keys()-reference_by_id.keys()),
+                                 only_reference=sorted(reference_by_id.keys()-current_ids.keys()), state_differences=differences),
+        current_diagnostics=current_info, reference_diagnostics=reference_info,
+        environment_comparison={key: current_info[key] == reference_info[key] if current_info.get(key) and reference_info.get(key) else None
+                                for key in ('projectId', 'uid', 'buildRevision')},
         deletion_candidates=[],
     )
 

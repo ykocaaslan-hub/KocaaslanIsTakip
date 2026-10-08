@@ -91,6 +91,20 @@ class ComparisonTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_backup(current)
 
+    def test_two_device_report_exposes_archive_version_pending_and_account_differences(self):
+        phone = self.backup('phone.json', [dict(row('a'), archived=False, updatedAt=12)], 3)
+        tablet = self.backup('tablet.json', [dict(row('a'), archived=True, updatedAt=20)], 3)
+        for path, info in [(phone, dict(uid='same', projectId='project', buildRevision='older', pendingSyncIds=['a'])),
+                           (tablet, dict(uid='same', projectId='project', buildRevision='newer', pendingSyncIds=[]))]:
+            value = json.loads(path.read_text()); value['diagnostics'] = info; path.write_text(json.dumps(value))
+        result = compare(load_backup(phone), load_backup(tablet))
+        self.assertEqual(result['identity_comparison']['shared_ids'], 1)
+        difference = result['identity_comparison']['state_differences'][0]
+        self.assertFalse(difference['current_archived']); self.assertTrue(difference['reference_archived'])
+        self.assertEqual(difference['reference_updatedAt'], 20); self.assertTrue(difference['current_pending'])
+        self.assertEqual(result['environment_comparison'], dict(projectId=True, uid=True, buildRevision=False))
+        self.assertEqual(result['deletion_candidates'], [])
+
     def test_inputs_cannot_be_overwritten(self):
         original = self.backup('original.json', [row(None)], 1)
         current = self.backup('current.json', [row('a')])

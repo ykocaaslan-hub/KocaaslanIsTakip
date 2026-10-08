@@ -13,7 +13,10 @@ android {
         targetSdk 36
         versionCode 127
         versionName '1.6.7'
+        buildConfigField 'String', 'BUILD_REVISION', '"' + (System.getenv('KOCAASLAN_BUILD_REVISION') ?: 'local') + '"'
     }
+
+    buildFeatures { buildConfig = true }
 
     signingConfigs {
         release {

@@ -194,3 +194,41 @@ all laid-out text ends, line widths/heights, exact formatted amounts, usable scr
 height and reachable navigation, rather than only inspecting LayoutParams. A real
 screenshot on the affected device remains useful to verify its specific font/display
 settings. This UI change does not alter transaction identity, archive or totals logic.
+
+
+## Phone follow-up: repeated snapshots, save completion and preferred layout
+
+The user reports phone duplicates on opening/sync, rather than during restore or form
+submission. The current device identities/versions are still needed to explain those
+existing copies. Screenshots do not contain sync IDs, archive versions or queued states.
+Do not claim that the following safeguards establish the reported live cause.
+
+The side-by-side business, four period tabs, three summary cards and four bottom items
+are restored at the user's request. Content height still grows instead of clipping.
+Currency text stays complete, can wrap within its card and opens a full-size totals
+dialog on tap. Native layout checks still cover narrow/large-font screens and now also
+assert the three summary cards and four tabs remain in the same horizontal rows.
+
+A separate concrete failure existed in form save: SQLite add succeeded, but a synchronous
+sync startup failure left the form open and displayed Save failed, allowing another
+random-ID insert on retry. Local commit now closes/disables the form before starting
+sync; the same form cannot commit twice and the outbox remains pending on network error.
+Two intentionally separate forms with equal content remain separate transactions.
+This is tested, but is not presented as the explanation for opening-time duplicates.
+
+Three shared mock-server tests use two distinct real SQLite database files, document-ID
+specific references and replayable complete snapshots. They cover repeated process
+reopen/download without new IDs, archive propagation/reopen and offline archive/restart/
+reconnect/undo convergence. They preserve all source rows. These tests simulate the
+protocol; real account/rules/cache and existing phone identity differences still require
+fresh backups from both devices.
+
+All builds still display version 1.6.7 / 127, so About and Sync info now also show the
+source commit's build revision. New v3 exports include a stable installation ID, build
+revision, Firebase project/UID when available, archived count and pending sync IDs.
+Backup remains available when Auth fails. No export diagnostics are uploaded to GitHub.
+The comparison script additionally reports shared/missing identities, archive/content/
+version differences, pending state and whether project/UID/build match. It never deletes
+or selects an archive target from similarity. Use this evidence to distinguish existing
+local-only copies, a waiting archive upload and incompatible device builds before any
+repair of current data.

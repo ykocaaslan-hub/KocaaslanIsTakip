@@ -184,4 +184,34 @@ public class MainActivityTest {
         org.robolectric.shadows.ShadowActivity.IntentForResult request=Shadows.shadowOf(activity).getNextStartedActivityForResult();assertEquals(1004,request.requestCode);assertEquals("android.intent.action.OPEN_DOCUMENT",request.intent.getAction());
     }
 
+    private EditText input(View view,String hint){
+        if(view instanceof EditText&&hint.equals(String.valueOf(((EditText)view).getHint())))return (EditText)view;
+        if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++){EditText found=input(((ViewGroup)view).getChildAt(i),hint);if(found!=null)return found;}return null;
+    }
+    private android.app.AlertDialog newForm()throws Exception {
+        java.lang.reflect.Method method=MainActivity.class.getDeclaredMethod("showForm",String.class,Transaction.class);method.setAccessible(true);method.invoke(activity,"Gelir",null);
+        android.app.AlertDialog dialog=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();input(dialog.getWindow().getDecorView(),"Tutar (₺)").setText("2");return dialog;
+    }
+    @Test public void successfulLocalSaveClosesFormEvenWhenSyncStartupThrows()throws Exception {
+        cloud.when(CloudSync::signedIn).thenThrow(new IllegalStateException("Network unavailable"));
+        android.app.AlertDialog dialog=newForm();Button save=dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE);save.performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        DbHelper db=field("db");assertEquals(1,db.all().size());assertEquals(1,db.pending().size());assertFalse(dialog.isShowing());
+        save.performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertEquals(1,db.all().size());assertEquals(2,db.totalStats("Yavuz Kocaaslan")[0],0);
+        assertTrue(org.robolectric.shadows.ShadowToast.getTextOfLatestToast().contains("cihazda kaydedildi"));
+    }
+    @Test public void repeatedClickOnSameSaveFormCannotInsertAnotherId()throws Exception {
+        android.app.AlertDialog dialog=newForm();Button save=dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE);save.performClick();save.performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertEquals(1,((DbHelper)field("db")).all().size());
+        newForm().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertEquals(2,((DbHelper)field("db")).all().size());
+    }
+    @Test public void invalidSaveMayBeCorrectedWithoutPreventingFirstValidCommit()throws Exception {
+        android.app.AlertDialog dialog=newForm();EditText amount=input(dialog.getWindow().getDecorView(),"Tutar (₺)");amount.setText("bad");Button save=dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE);save.performClick();assertTrue(dialog.isShowing());assertEquals(0,((DbHelper)field("db")).all().size());
+        amount.setText("2");save.performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertEquals(1,((DbHelper)field("db")).all().size());
+    }
+    @Test public void backupDiagnosticsKeepStableDeviceIdAndPendingIdsWithoutChangingRecords()throws Exception {
+        DbHelper db=field("db");long id=db.add("Yavuz Kocaaslan","Gelir",2,"Satış","test",1000);
+        java.lang.reflect.Method diagnostic=MainActivity.class.getDeclaredMethod("diagnosticBackup");diagnostic.setAccessible(true);
+        org.json.JSONObject a=new org.json.JSONObject(new String((byte[])diagnostic.invoke(activity),java.nio.charset.StandardCharsets.UTF_8)),b=new org.json.JSONObject(new String((byte[])diagnostic.invoke(activity),java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals(a.getJSONObject("diagnostics").getString("installationId"),b.getJSONObject("diagnostics").getString("installationId"));assertEquals(BuildConfig.BUILD_REVISION,a.getJSONObject("diagnostics").getString("buildRevision"));assertEquals(db.byId(id).syncId,a.getJSONObject("diagnostics").getJSONArray("pendingSyncIds").getString(0));assertEquals(1,BackupData.read(a.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)).rows.size());assertEquals(1,db.all().size());
+    }
+
 }

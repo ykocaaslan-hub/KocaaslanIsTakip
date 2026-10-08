@@ -68,6 +68,9 @@ public class ResponsiveLayoutTest {
     }
     private void assertContentAndNavigation(LinearLayout frame,int heightDp)throws Exception {
         assertTrue(assertReadable(frame)>20);
+        TextView income=field("dayIncome"),expense=field("dayExpense"),net=field("dayNet");
+        assertSame(((View)income.getParent()).getParent(),((View)expense.getParent()).getParent());assertSame(((View)income.getParent()).getParent(),((View)net.getParent()).getParent());assertEquals(LinearLayout.HORIZONTAL,((LinearLayout)((View)income.getParent()).getParent()).getOrientation());
+        assertSame(button(frame,"Bugün").getParent(),button(frame,"Tümü").getParent());assertEquals(4,((ViewGroup)button(frame,"Bugün").getParent()).getChildCount());
         java.text.NumberFormat money=field("money");assertEquals(money.format(1259400.25),((TextView)field("dayIncome")).getText().toString());assertEquals(money.format(838000.50),((TextView)field("dayExpense")).getText().toString());
         View footer=frame.getChildAt(1);assertTrue(footer.getHeight()>0);assertTrue(footer.getBottom()<=Math.round(heightDp*activity.getResources().getDisplayMetrics().density));assertTrue(frame.getChildAt(0).getHeight()>0);
         for(String label:new String[]{"Ana Sayfa","Kayıtlar","Raporlar","Genel Toplamlar"})assertNotNull(button(footer,label));

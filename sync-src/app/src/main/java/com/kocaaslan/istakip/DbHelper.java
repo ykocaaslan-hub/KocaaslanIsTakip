@@ -15,7 +15,8 @@ public class DbHelper extends SQLiteOpenHelper {
     private static final int DB_VERSION = 4;
     private static final String T = "transactions";
 
-    public DbHelper(Context c) { super(c, DB_NAME, null, DB_VERSION); }
+    public DbHelper(Context c) { this(c,DB_NAME); }
+    DbHelper(Context c,String name) { super(c,name,null,DB_VERSION); }
 
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE " + T + " (" +

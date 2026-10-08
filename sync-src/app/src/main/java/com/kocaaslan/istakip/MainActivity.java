@@ -92,7 +92,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         TextView menu=txt("☰",24,Color.WHITE,true);menu.setGravity(Gravity.CENTER);menu.setMinimumWidth(dp(48));menu.setMinimumHeight(dp(48));menu.setContentDescription("Ayarlar");header.addView(menu,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout htxt=new LinearLayout(this);htxt.setOrientation(LinearLayout.VERTICAL);htxt.addView(txt("Kocaaslan İş Takip",20,0xFFFFD21F,true));htxt.addView(txt("“Daima Fenerbahçe”",16,0xFFFFD21F,true));htxt.addView(txt("1907",12,0xFFFFD21F,true));header.addView(htxt,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));menu.setOnClickListener(v->settingsDialog());root.addView(header,mp(0,0,0,12));
 
-        LinearLayout businesses=new LinearLayout(this);businesses.setOrientation(largeText()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        LinearLayout businesses=new LinearLayout(this);businesses.setOrientation(LinearLayout.HORIZONTAL);
         b1=button("YK • 1. İşletme\n"+B1,0xFF0B2C50,Color.WHITE);b2=button("KK • 2. İşletme\n"+B2,0xFF0B2C50,Color.WHITE);
         b1.setTextSize(15);b2.setTextSize(15);b1.setGravity(Gravity.CENTER_VERTICAL);b2.setGravity(Gravity.CENTER_VERTICAL);
         b1.setOnClickListener(v->switchBusiness(B1));b2.setOnClickListener(v->switchBusiness(B2));addFlexible(businesses,b1,72);addFlexible(businesses,b2,72);root.addView(businesses,mp(0,0,0,12));
@@ -102,18 +102,18 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         LinearLayout tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.VERTICAL);String[] tabNames={"Bugün","Bu Hafta","Bu Ay","Tümü"};
         LinearLayout tabRow=null;
         for(int k=0;k<4;k++){
-            if(k%(compactLayout()?2:4)==0){tabRow=new LinearLayout(this);tabs.addView(tabRow,mp(0,k==0?0:6,0,0));}
+            if(k%4==0){tabRow=new LinearLayout(this);tabs.addView(tabRow,mp(0,k==0?0:6,0,0));}
             final int period=k;Button tb=button(tabNames[k],k==dashboardPeriod?0xFFFFD21F:0xFF082846,k==dashboardPeriod?0xFF061A33:Color.WHITE);tb.setTextSize(14);
             tb.setOnClickListener(v->{savedSearch=search.getText().toString();dashboardPeriod=period;savedFilter=period==3?0:period+1;buildUi();});addFlexible(tabRow,tb,48);
         }
         root.addView(tabs,mp(0,0,0,12));
 
-        LinearLayout stats=new LinearLayout(this);stats.setOrientation(compactLayout()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);
         dayIncome=summaryCard(stats,"Gelir","₺0",0xFF00D968);dayExpense=summaryCard(stats,"Gider","₺0",0xFFFF3B4D);dayNet=summaryCard(stats,"Net","₺0",0xFF1B8CFF);
         weekIncome=txt("",1,Color.TRANSPARENT,false);weekExpense=txt("",1,Color.TRANSPARENT,false);weekNet=txt("",1,Color.TRANSPARENT,false);monthIncome=txt("",1,Color.TRANSPARENT,false);monthExpense=txt("",1,Color.TRANSPARENT,false);monthNet=txt("",1,Color.TRANSPARENT,false);
         root.addView(stats,mp(0,0,0,12));
 
-        LinearLayout quick=new LinearLayout(this);quick.setOrientation(largeText()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        LinearLayout quick=new LinearLayout(this);quick.setOrientation(LinearLayout.HORIZONTAL);
         Button addI=button("＋ Gelir ekle",0xFF009D50,Color.WHITE),addE=button("＋ Gider ekle",0xFFD51E2B,Color.WHITE);addI.setTextSize(17);addE.setTextSize(17);addI.setOnClickListener(v->showAdd("Gelir"));addE.setOnClickListener(v->showAdd("Gider"));addFlexible(quick,addI,64);addFlexible(quick,addE,64);root.addView(quick,mp(0,0,0,12));
 
         LinearLayout total= (LinearLayout)totalCard(); total.setVisibility(View.GONE); root.addView(total,new LinearLayout.LayoutParams(1,1));
@@ -137,7 +137,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         list=new ListView(this);list.setDivider(null);list.setDividerHeight(0);list.setNestedScrollingEnabled(false);adapter=new TransactionAdapter(this,this);list.setAdapter(adapter);list.setOnItemClickListener((parent,view,position,id)->showForm(adapter.getItem(position).type,adapter.getItem(position)));LinearLayout.LayoutParams listParams=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(360));root.addView(list,listParams);
 
         LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.VERTICAL);String[] nav={"Ana Sayfa","Kayıtlar","Raporlar","Genel Toplamlar"};LinearLayout navRow=null;
-        int navColumns=largeText()||getResources().getConfiguration().screenWidthDp<360?2:4;
+        int navColumns=4;
         for(int k=0;k<nav.length;k++){
             if(k%navColumns==0){navRow=new LinearLayout(this);bottom.addView(navRow,mp(0,k==0?0:4,0,0));}
             Button nb=button(nav[k],k==0?0xFF0B2C50:0xFF061C34,k==0?0xFFFFD21F:Color.WHITE);nb.setTextSize(13);
@@ -145,7 +145,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         }
         frame.addView(bottom,mp(0,0,0,0));
 
-        LinearLayout acts=new LinearLayout(this);acts.setOrientation(largeText()?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        LinearLayout acts=new LinearLayout(this);acts.setOrientation(LinearLayout.HORIZONTAL);
         Button csv=button("CSV / Excel",0xFF0B2C50,Color.WHITE),backup=button("Yedekle",0xFF0B2C50,Color.WHITE),restore=button("Geri Yükle",0xFF0B2C50,Color.WHITE);
         csv.setOnClickListener(v->beginCsv());backup.setOnClickListener(v->beginBackup());restore.setOnClickListener(v->beginRestore());addFlexible(acts,csv,48);addFlexible(acts,backup,48);addFlexible(acts,restore,48);root.addView(acts);
         Button repair=button("Çift kayıtları düzelt",0xFF0B2C50,Color.WHITE);repair.setOnClickListener(v->beginRepair());root.addView(repair,mp(0,8,0,0));
@@ -162,8 +162,8 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         child.setMinimumHeight(dp(minHeight));parent.addView(child,params);
     }
     private TextView summaryCard(LinearLayout parent,String label,String value,int accent){
-        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(16),dp(12),dp(16),dp(12));GradientDrawable g=bg(0xFF092B4D,18);g.setStroke(dp(2),accent);card.setBackground(g);card.setElevation(dp(9));
-        card.addView(txt(label,16,Color.WHITE,true),mp(0,0,0,0));TextView v=txt(value,23,accent,true);card.addView(v,mp(0,4,0,0));addFlexible(parent,card,0);return v;
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(8),dp(12),dp(8),dp(12));GradientDrawable g=bg(0xFF092B4D,18);g.setStroke(dp(2),accent);card.setBackground(g);card.setElevation(dp(9));
+        card.addView(txt(label,16,Color.WHITE,true),mp(0,0,0,0));TextView v=txt(value,23,accent,true);card.addView(v,mp(0,4,0,0));addFlexible(parent,card,0);card.getLayoutParams().height=ViewGroup.LayoutParams.MATCH_PARENT;card.setOnClickListener(view->showSelectedTotals());return v;
     }
 
     private View periodCard(String label,int which){ LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(13),dp(13),dp(13),dp(13));box.setBackground(cardBg(0xFF0A2748));box.setElevation(dp(7));TextView l=txt(label,12,0xFFFFD21F,true);box.addView(l);TextView i=txt("Gelir 0",13,0xFF3EEA83,true),e=txt("Gider 0",13,0xFFFF5B63,true),n=txt("Net 0",17,0xFF4DB5FF,true);box.addView(i);box.addView(e);box.addView(n);if(which==0){dayIncome=i;dayExpense=e;dayNet=n;}else if(which==1){weekIncome=i;weekExpense=e;weekNet=n;}else{monthIncome=i;monthExpense=e;monthNet=n;}return box; }
@@ -249,7 +249,12 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void switchBusiness(String b){business=b;titleBusiness.setText(b);boolean first=B1.equals(b);b1.setBackground(bg(first?0xFF1F9D72:0xFFE6ECE9,14));b1.setTextColor(first?Color.WHITE:0xFF24413B);b2.setBackground(bg(!first?0xFF1F9D72:0xFFE6ECE9,14));b2.setTextColor(!first?Color.WHITE:0xFF24413B);refresh();}
 
     private void refresh(){ Calendar now=Calendar.getInstance(); long day=startOfDay(now).getTimeInMillis();Calendar d2=(Calendar)startOfDay(now).clone();d2.add(Calendar.DAY_OF_MONTH,1);long dayEnd=d2.getTimeInMillis();Calendar ws=startOfWeek(now);Calendar we=(Calendar)ws.clone();we.add(Calendar.DAY_OF_MONTH,7);Calendar ms=startOfMonth(now);Calendar me=(Calendar)ms.clone();me.add(Calendar.MONTH,1);double[] selected=dashboardPeriod==0?db.stats(business,day,dayEnd):dashboardPeriod==1?db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()):dashboardPeriod==2?db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()):db.totalStats(business);long expenseStart=dashboardPeriod==0?day:dashboardPeriod==1?ws.getTimeInMillis():dashboardPeriod==2?ms.getTimeInMillis():0;long expenseEnd=dashboardPeriod==0?dayEnd:dashboardPeriod==1?we.getTimeInMillis():dashboardPeriod==2?me.getTimeInMillis():0;selected[1]=db.expenseSum(business,expenseStart,expenseEnd);selected[2]=selected[0]-selected[1];setStats(selected,dayIncome,dayExpense,dayNet);setStats(db.stats(business,ws.getTimeInMillis(),we.getTimeInMillis()),weekIncome,weekExpense,weekNet);setStats(db.stats(business,ms.getTimeInMillis(),me.getTimeInMillis()),monthIncome,monthExpense,monthNet);setStats(db.totalStats(business),totalIncome,totalExpense,totalNet);chart.setData(db.lastSixMonths(business));refreshList();}
-    private void setStats(double[] s,TextView i,TextView e,TextView n){i.setText(money.format(s[0]));e.setText(money.format(s[1]));n.setText(money.format(s[2]));i.setTextSize(18);e.setTextSize(18);n.setTextSize(18);i.setSingleLine(false);e.setSingleLine(false);n.setSingleLine(false);n.setTextColor(s[2]>=0?0xFF13835D:0xFFD94A4A);}
+    private void setStats(double[] s,TextView i,TextView e,TextView n){i.setText(money.format(s[0]));e.setText(money.format(s[1]));n.setText(money.format(s[2]));i.setTextSize(16);e.setTextSize(16);n.setTextSize(16);i.setSingleLine(false);e.setSingleLine(false);n.setSingleLine(false);n.setTextColor(s[2]>=0?0xFF13835D:0xFFD94A4A);}
+    private void showSelectedTotals(){
+        new AlertDialog.Builder(this).setTitle(business+" — "+String.valueOf(filter.getSelectedItem()))
+            .setMessage("Gelir: "+dayIncome.getText()+"\nGider: "+dayExpense.getText()+"\nNet: "+dayNet.getText())
+            .setPositiveButton("Kapat",null).show();
+    }
     private void refreshList(){
         if(adapter==null)return;
         long[] r=filterRange();adapter.setItems(db.list(business,search==null?"":search.getText().toString(),r[0],r[1],0));resizeRecordList();
@@ -289,14 +294,31 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private long[] filterRange(){int p=filter==null?0:filter.getSelectedItemPosition();Calendar now=Calendar.getInstance();if(p==4)return new long[]{customStart,customEnd};if(p==1){Calendar s=startOfDay(now),e=(Calendar)s.clone();e.add(Calendar.DAY_OF_MONTH,1);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}if(p==2){Calendar s=startOfWeek(now),e=(Calendar)s.clone();e.add(Calendar.DAY_OF_MONTH,7);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}if(p==3){Calendar s=startOfMonth(now),e=(Calendar)s.clone();e.add(Calendar.MONTH,1);return new long[]{s.getTimeInMillis(),e.getTimeInMillis()};}return new long[]{0,0};}
 
     private void showAdd(String type){showForm(type,null);}
-    private void showForm(String type,Transaction existing){ final Calendar selected=Calendar.getInstance();if(existing!=null)selected.setTimeInMillis(existing.date); LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(8),dp(20),0);TextView who=txt(business,15,0xFF1F5A4D,true);form.addView(who);EditText amount=new EditText(this);amount.setHint("Tutar (₺)");amount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);form.addView(amount);Spinner cat=new Spinner(this);String[] incomeCats={"Satış","Hizmet","Diğer Gelir"};String[] expenseCats={"Mal Alımı","Kira","Personel","Fatura","Vergi","Ulaşım","Bakım/Onarım","Diğer Gider"};cat.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,"Gelir".equals(type)?incomeCats:expenseCats));form.addView(cat);EditText note=new EditText(this);note.setHint("Açıklama (isteğe bağlı)");form.addView(note);Button dateBtn=button("Tarih: "+fmtDate(selected.getTimeInMillis()),0xFFE8F0ED,0xFF24413B);dateBtn.setOnClickListener(v->new DatePickerDialog(this,(view,y,m,d)->{selected.set(y,m,d,12,0,0);selected.set(Calendar.MILLISECOND,0);dateBtn.setText("Tarih: "+fmtDate(selected.getTimeInMillis()));},selected.get(Calendar.YEAR),selected.get(Calendar.MONTH),selected.get(Calendar.DAY_OF_MONTH)).show());form.addView(dateBtn,mp(0,8,0,0));if(existing!=null){amount.setText(Double.toString(existing.amount));note.setText(existing.note);String[] cats="Gelir".equals(type)?incomeCats:expenseCats;for(int k=0;k<cats.length;k++)if(cats[k].equals(existing.category))cat.setSelection(k);}AlertDialog dlg=new AlertDialog.Builder(this).setTitle(type+(existing==null?" Ekle":" Düzenle")).setView(form).setNegativeButton("Vazgeç",null).setPositiveButton("Kaydet",null).create();dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{String a=amount.getText().toString().trim().replace(",", ".");double val=Double.parseDouble(a);if(val<=0||Double.isNaN(val)||Double.isInfinite(val))throw new IllegalArgumentException();if(existing==null){long newId=db.add(business,type,val,String.valueOf(cat.getSelectedItem()),note.getText().toString().trim(),selected.getTimeInMillis());syncTransaction(newId);}else{db.update(new Transaction(existing.id,existing.business,existing.type,val,String.valueOf(cat.getSelectedItem()),note.getText().toString().trim(),selected.getTimeInMillis()));syncTransaction(existing.id);}dlg.dismiss();refresh();}catch(IllegalArgumentException ex){amount.setError("Geçerli bir tutar girin");}catch(Exception ex){Toast.makeText(this,"Kayıt kaydedilemedi",Toast.LENGTH_LONG).show();}}));dlg.show();}
+    private void showForm(String type,Transaction existing){ final Calendar selected=Calendar.getInstance();if(existing!=null)selected.setTimeInMillis(existing.date); LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(8),dp(20),0);TextView who=txt(business,15,0xFF1F5A4D,true);form.addView(who);EditText amount=new EditText(this);amount.setHint("Tutar (₺)");amount.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);form.addView(amount);Spinner cat=new Spinner(this);String[] incomeCats={"Satış","Hizmet","Diğer Gelir"};String[] expenseCats={"Mal Alımı","Kira","Personel","Fatura","Vergi","Ulaşım","Bakım/Onarım","Diğer Gider"};cat.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,"Gelir".equals(type)?incomeCats:expenseCats));form.addView(cat);EditText note=new EditText(this);note.setHint("Açıklama (isteğe bağlı)");form.addView(note);Button dateBtn=button("Tarih: "+fmtDate(selected.getTimeInMillis()),0xFFE8F0ED,0xFF24413B);dateBtn.setOnClickListener(v->new DatePickerDialog(this,(view,y,m,d)->{selected.set(y,m,d,12,0,0);selected.set(Calendar.MILLISECOND,0);dateBtn.setText("Tarih: "+fmtDate(selected.getTimeInMillis()));},selected.get(Calendar.YEAR),selected.get(Calendar.MONTH),selected.get(Calendar.DAY_OF_MONTH)).show());form.addView(dateBtn,mp(0,8,0,0));if(existing!=null){amount.setText(Double.toString(existing.amount));note.setText(existing.note);String[] cats="Gelir".equals(type)?incomeCats:expenseCats;for(int k=0;k<cats.length;k++)if(cats[k].equals(existing.category))cat.setSelection(k);}AlertDialog dlg=new AlertDialog.Builder(this).setTitle(type+(existing==null?" Ekle":" Düzenle")).setView(form).setNegativeButton("Vazgeç",null).setPositiveButton("Kaydet",null).create();
+        final boolean[] committed={false};
+        dlg.setOnShowListener(x->dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            if(committed[0])return;
+            long savedId;
+            try{
+                double val=Double.parseDouble(amount.getText().toString().trim().replace(",", "."));
+                if(val<=0||Double.isNaN(val)||Double.isInfinite(val))throw new IllegalArgumentException();
+                if(existing==null)savedId=db.add(business,type,val,String.valueOf(cat.getSelectedItem()),note.getText().toString().trim(),selected.getTimeInMillis());
+                else {db.update(new Transaction(existing.id,existing.business,existing.type,val,String.valueOf(cat.getSelectedItem()),note.getText().toString().trim(),selected.getTimeInMillis()));savedId=existing.id;}
+            }catch(IllegalArgumentException ex){amount.setError("Geçerli bir tutar girin");return;}
+            catch(Exception ex){Toast.makeText(this,"Kayıt kaydedilemedi",Toast.LENGTH_LONG).show();return;}
+            // A committed local write is final for this form, regardless of the later network result.
+            committed[0]=true;dlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);dlg.dismiss();refresh();
+            try{syncTransaction(savedId);}catch(Exception ex){Toast.makeText(this,"Kayıt cihazda kaydedildi; bulut aktarımı bekliyor.",Toast.LENGTH_LONG).show();}
+        }));dlg.show();
+    }
+
 
     @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{db.delete(t.id);syncTransaction(t.id);refresh();}).show();}
 
-    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında","Arşivdeki kayıtlar"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else if(which==6)showArchive();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v"+appVersion()).setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
+    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında","Arşivdeki kayıtlar"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else if(which==6)showArchive();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v"+appVersion()).setMessage("Paket: "+BuildConfig.BUILD_REVISION+"\n\nYavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
     private void showSyncInfo(){
         String project=CloudSync.projectId(), email=CloudSync.email(), uid=CloudSync.uid();
-        String msg="Durum: "+(CloudSync.signedIn()?"GİRİŞ YAPILMIŞ":"GİRİŞ YOK")+"\n\nFirebase Projesi: "+String.valueOf(project)+"\nE-posta: "+String.valueOf(email)+"\nUID: "+String.valueOf(uid)+"\n\nBağlantı testi için TEST ET düğmesine basın.";
+        String msg="Paket: "+appVersion()+" / "+BuildConfig.BUILD_REVISION+"\n\n"+localTotals()+"\nArşivde: "+db.archivedCount()+"\nAktarım bekleyen: "+db.pending().size()+"\n\nDurum: "+(CloudSync.signedIn()?"GİRİŞ YAPILMIŞ":"GİRİŞ YOK")+"\n\nFirebase Projesi: "+String.valueOf(project)+"\nE-posta: "+String.valueOf(email)+"\nUID: "+String.valueOf(uid)+"\n\nBağlantı testi için TEST ET düğmesine basın.";
         AlertDialog dlg=new AlertDialog.Builder(this).setTitle("Senkron Bilgisi").setMessage(msg).setNegativeButton("Kapat",null).setNeutralButton("Hesabı Yeniden Bağla",null).setPositiveButton("TEST ET",null).create();
         dlg.setOnShowListener(x->{dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v->{dlg.dismiss();try{if(syncListener!=null){syncListener.remove();syncListener=null;}CloudSync.signOut();}catch(Exception ignored){}promptCloudLogin(prefs.getString("pin",""));});dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{dlg.setMessage("Firebase sunucusu test ediliyor...");CloudSync.diagnose((ok,error)->runOnUiThread(()->dlg.setMessage((ok?"BAŞARILI\n\n":"HATA\n\n")+String.valueOf(error))));});});dlg.show();
     }
@@ -313,9 +335,18 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void writeCsv(Uri u)throws Exception{List<Transaction> rows=db.list(business,search==null?"":search.getText().toString(),exportStart,exportEnd,0);OutputStream os=getContentResolver().openOutputStream(u);OutputStreamWriter w=new OutputStreamWriter(os,StandardCharsets.UTF_8);w.write('\uFEFF');w.write("Tarih;İşletme;Tür;Kategori;Açıklama;Tutar\n");for(Transaction t:rows)w.write(csv(fmtDate(t.date))+";"+csv(t.business)+";"+csv(t.type)+";"+csv(t.category)+";"+csv(t.note)+";"+String.format(Locale.US,"%.2f",t.amount).replace('.',',')+"\n");w.close();Toast.makeText(this,"CSV kaydedildi",Toast.LENGTH_SHORT).show();}
     private void writeBackup(Uri u)throws Exception{
         try(OutputStream os=getContentResolver().openOutputStream(u)){
-            if(os==null)throw new IOException("Yedek dosyası açılamadı");os.write(BackupData.write(db.all()));
+            if(os==null)throw new IOException("Yedek dosyası açılamadı");os.write(diagnosticBackup());
         }
         Toast.makeText(this,"Yedek kaydedildi; arşivdeki kayıtlar da korundu",Toast.LENGTH_SHORT).show();
+    }
+    private byte[] diagnosticBackup()throws Exception {
+        JSONObject backup=new JSONObject(new String(BackupData.write(db.all()),StandardCharsets.UTF_8));
+        String device=prefs.getString("installation_id",null);
+        if(device==null){device=UUID.randomUUID().toString();prefs.edit().putString("installation_id",device).commit();}
+        JSONObject info=new JSONObject();info.put("installationId",device);info.put("buildRevision",BuildConfig.BUILD_REVISION);info.put("versionName",appVersion());
+        JSONArray pending=new JSONArray();for(Transaction t:db.pending())pending.put(t.syncId);info.put("pendingSyncIds",pending);info.put("archivedCount",db.archivedCount());
+        try{info.put("projectId",CloudSync.projectId());info.put("uid",CloudSync.uid());}catch(Exception ex){info.put("authStatus","unavailable");}
+        backup.put("diagnostics",info);return backup.toString(2).getBytes(StandardCharsets.UTF_8);
     }
     private BackupData readBackup(Uri u)throws Exception {
         ByteArrayOutputStream out=new ByteArrayOutputStream();
