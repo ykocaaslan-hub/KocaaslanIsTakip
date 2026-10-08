@@ -2,6 +2,8 @@ name: Kocaaslan Is Takip APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
@@ -23,6 +25,7 @@ jobs:
           python3 scripts/patch145.py
 
       - name: Imzalama dosyasini yerlestir
+        if: github.event_name != 'pull_request'
         run: cp kocaaslan-release.jks app/app/kocaaslan-release.jks
 
       - name: Java 17 kur
@@ -42,11 +45,17 @@ jobs:
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
       - name: APK olustur
+        if: github.event_name != 'pull_request'
         env:
           KOCAASLAN_SIGNING_PASSWORD: ${{ secrets.KOCAASLAN_SIGNING_PASSWORD }}
         run: cd app && gradle --no-daemon :app:assembleRelease
 
+      - name: Debug APK derleme kontrolu
+        if: github.event_name == 'pull_request'
+        run: cd app && gradle --no-daemon :app:assembleDebug
+
       - name: APK dosyasini kaydet
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: KocaaslanIsTakip-1.6.6-CiftYonlu-Senkron-APK
