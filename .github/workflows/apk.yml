@@ -23,6 +23,8 @@ jobs:
         run: |
           cp -R sync-src app
           python3 scripts/patch145.py
+      - name: Yedek karsilastirma testleri
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Java 17 kur
         uses: actions/setup-java@v5
         with:
@@ -45,7 +47,7 @@ jobs:
           suites = [ET.parse(p).getroot() for p in Path('app/app/build/test-results/testDebugUnitTest').glob('TEST-*.xml')]
           tests = sum(int(s.attrib['tests']) for s in suites)
           failures = sum(int(s.attrib['failures']) + int(s.attrib['errors']) for s in suites)
-          assert tests >= 21 and failures == 0, (tests, failures)
+          assert tests >= 22 and failures == 0, (tests, failures)
           print(f'Regression tests: {tests} passed, {failures} failures/errors')
           PYTEST
       - name: Imzalama dosyasini yerlestir

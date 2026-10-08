@@ -293,15 +293,16 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         }
         JSONObject root=new JSONObject(out.toString("UTF-8"));
         if(!"Kocaaslan İş Takip".equals(root.getString("app"))||(root.getInt("version")!=1&&root.getInt("version")!=2))throw new IOException("Uyumsuz yedek");
-        JSONArray a=root.getJSONArray("transactions");List<Transaction> rows=new ArrayList<>();
+        JSONArray a=root.getJSONArray("transactions");List<Transaction> rows=new ArrayList<>();boolean missingIdentity=false;
         for(int x=0;x<a.length();x++){
             JSONObject o=a.getJSONObject(x);String business=o.getString("business"),type=o.getString("type");double amount=o.getDouble("amount");long date=o.getLong("date");
             if((!B1.equals(business)&&!B2.equals(business))||(!"Gelir".equals(type)&&!"Gider".equals(type))||amount<=0||Double.isNaN(amount)||Double.isInfinite(amount)||date<=0)throw new IOException("Geçersiz kayıt: "+(x+1));
+            if(o.optString("syncId","").trim().isEmpty())missingIdentity=true;
             rows.add(new Transaction(0,business,type,amount,o.optString("category","Diğer"),o.optString("note",""),date,o.optString("syncId","").trim().isEmpty()?java.util.UUID.nameUUIDFromBytes((out.toString("UTF-8")+"#"+x).getBytes(StandardCharsets.UTF_8)).toString():o.getString("syncId"),o.optLong("updatedAt",0)));
         }
         if(rows.isEmpty())throw new IOException("Yedekte işlem kaydı yok. Mevcut kayıtlar değişmedi.");
         String preview="Mevcut kayıtlar korunarak yedekteki "+rows.size()+" kayıt birleştirilecek.\n\n"+backupTotals(rows)+"\n\nAynı kimlikteki mevcut kayıtlar korunur; önceden silinen kayıtlar otomatik geri getirilmez. Devam edilsin mi?";
-        new AlertDialog.Builder(this).setTitle("Yedeği geri yükle").setMessage(preview).setNegativeButton("Vazgeç",null).setPositiveButton("Yükle",(d,w)->{
+        Runnable applyRestore=()->{
             DbHelper.RestoreResult result;
             try{result=db.mergeBackup(rows);}catch(Exception e){new AlertDialog.Builder(this).setTitle("Geri yükleme başarısız").setMessage("Mevcut kayıtlar korundu.\n"+String.valueOf(e.getMessage())).setPositiveButton("Tamam",null).show();return;}
             // Data import is complete. Display it before attempting network operations.
@@ -311,6 +312,17 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
             String summary="Yedek geri yüklendi.\nYeni eklenen: "+result.added+"\nAynı kimlikle zaten bulunan: "+result.alreadyPresent+"\nÖnceden silinmiş olduğu için eklenmeyen: "+result.previouslyDeleted+"\n\nCihazdaki tüm kayıtlar (mevcut + eklenen):\n"+localTotals()+"\n\nTümü seçildi, arama temizlendi. İşletmeler arasında üstten geçebilirsiniz.";
             new AlertDialog.Builder(this).setTitle("Geri yükleme sonucu").setMessage(summary).setPositiveButton("Tamam",null).show();
             try{syncTransaction(0);}catch(Exception e){Toast.makeText(this,"Kayıtlar cihazda yüklendi; bulut aktarımı bekliyor: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+        };
+        final boolean legacy=missingIdentity;
+        new AlertDialog.Builder(this).setTitle("Yedeği geri yükle").setMessage(preview).setNegativeButton("Vazgeç",null).setPositiveButton("Yükle",(d,w)->{
+            boolean cloudPossible=true;
+            try{cloudPossible=CloudSync.signedIn();}catch(Exception ignored){}
+            if(legacy&&(db.count(B1)>0||db.count(B2)>0||cloudPossible)){
+                new AlertDialog.Builder(this).setTitle("Bu yedek ikinci kopyalar oluşturabilir")
+                    .setMessage("Bu eski yedekte kayıt kimlikleri yok. Cihazınızdaki veya buluttaki aynı kayıtlar yeniden eklenip toplamları artırabilir.\n\nÖnce mevcut kayıtları yedekleyip eski yedekle karşılaştırın. Aynı içerikli kayıtları otomatik silmiyoruz. Yalnızca bu kayıtların ayrı işlemler olduğunu doğruladıysanız ekleyin.")
+                    .setNegativeButton("Vazgeç",null).setNeutralButton("Mevcut kayıtları yedekle",(warning,which)->beginBackup())
+                    .setPositiveButton("Ayrı işlemler olarak ekle",(warning,which)->applyRestore.run()).show();
+            }else applyRestore.run();
         }).show();
     }
 

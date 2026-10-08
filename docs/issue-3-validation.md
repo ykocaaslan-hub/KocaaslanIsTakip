@@ -90,3 +90,31 @@ business, repeated import, recreation, retained local rows and deletion tombston
 a transaction rollback on invalid input, and Firebase unavailable after import.
 These tests validate visibility and calculations for fixture data, not the user's
 actual backup or amounts, which have not been provided.
+
+## Identity-less legacy backup overlap
+
+A v1 backup has no original sync IDs. The deterministic file/position IDs prevent
+importing the exact same file twice, but cannot identify the same original rows
+already stored under cloud IDs. Importing that backup into an existing account can
+therefore create a second set. Restores containing missing IDs now require a second,
+explicit confirmation when local rows or a signed-in account exist (or auth state is
+unknown). Cancel and Back up existing records perform no import or cloud write.
+Adding as separate transactions remains available for genuinely different entries.
+Existing same-content records are never automatically merged, excluded or deleted.
+
+To assess existing doubled data, export a current v2 backup with the app's Back up
+button and retain the pre-import backup. Compare them offline:
+
+```sh
+python3 scripts/compare_backups.py --current current.json --reference original.json --output comparison.json
+```
+
+This creates a new JSON report exclusively; input files cannot be overwritten.
+It reports business totals with Decimal arithmetic, groups of equal content, source
+row numbers and sync IDs, reference multiplicity and whether the entire current
+content distribution is twice the reference distribution. Equal content is a review
+signal, not proof that an entry should be deleted. Two legitimate identical entries
+in the original remain two in the baseline; the tool never selects a deletion or
+writes to SQLite/Firestore. It does not establish which of two different IDs is the
+original when the reference has no IDs. Actual user backups and explicit ID-based
+review are still required before repairing existing duplicated data.
