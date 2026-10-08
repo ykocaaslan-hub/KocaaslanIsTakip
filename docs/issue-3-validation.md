@@ -111,7 +111,8 @@ python3 scripts/compare_backups.py --current current.json --reference original.j
 
 This creates a new JSON report exclusively; input files cannot be overwritten.
 It reports business totals with Decimal arithmetic, groups of equal content, source
-row numbers and sync IDs, reference multiplicity and whether the entire current
+row numbers and sync IDs, exact legacy-import ID matches using the app's file/position
+UUID algorithm, reference multiplicity and whether the entire current
 content distribution is twice the reference distribution. Equal content is a review
 signal, not proof that an entry should be deleted. Two legitimate identical entries
 in the original remain two in the baseline; the tool never selects a deletion or

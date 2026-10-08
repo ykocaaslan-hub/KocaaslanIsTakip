@@ -73,6 +73,7 @@ public class MainActivityTest {
     private android.app.AlertDialog importBackup(android.net.Uri uri)throws Exception{
         java.lang.reflect.Method restore=MainActivity.class.getDeclaredMethod("restoreBackup",android.net.Uri.class);restore.setAccessible(true);restore.invoke(activity,uri);
         android.app.AlertDialog confirm=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();confirm.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
         android.app.AlertDialog next=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
         // These fixture imports are intentionally separate; explicitly acknowledge the legacy warning.
         if("Ayrı işlemler olarak ekle".equals(next.getButton(android.app.AlertDialog.BUTTON_POSITIVE).getText().toString()))next.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
@@ -129,9 +130,10 @@ public class MainActivityTest {
         android.net.Uri uri=backupFile("overlap.json",1,new Transaction(0,"Yavuz Kocaaslan","Gider",15,"Kira","same",2000));
         java.lang.reflect.Method restore=MainActivity.class.getDeclaredMethod("restoreBackup",android.net.Uri.class);restore.setAccessible(true);restore.invoke(activity,uri);
         org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
         android.app.AlertDialog warning=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertTrue(dialogMessage(warning).contains("ikinci" )||dialogMessage(warning).contains("yeniden eklenip"));
         assertEquals("Ayrı işlemler olarak ekle",warning.getButton(android.app.AlertDialog.BUTTON_POSITIVE).getText().toString());assertEquals(1,db.all().size());assertEquals(15,db.totalStats("Yavuz Kocaaslan")[1],0);assertTrue(db.pending().isEmpty());
-        warning.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).performClick();assertEquals(1,db.all().size());assertEquals("cloud-id",db.all().get(0).syncId);
+        warning.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertEquals(1,db.all().size());assertEquals("cloud-id",db.all().get(0).syncId);
     }
     @Test public void bottomNavigationRemainsOutsideScrollableContent()throws Exception{
         LinearLayout root=field("root");assertTrue(root.getParent() instanceof ScrollView);

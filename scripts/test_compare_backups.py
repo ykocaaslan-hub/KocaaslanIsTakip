@@ -63,6 +63,17 @@ class ComparisonTest(unittest.TestCase):
         self.assertEqual(result['equal_content_groups'], [])
         self.assertEqual(result['current_totals']['shop']['expense'], '0.3')
 
+    def test_legacy_import_id_matches_java_oracle_and_identifies_new_import(self):
+        original = self.root/'original.json'
+        original.write_text('{"app":"Kocaaslan İş Takip","version":1,"transactions":[{"business":"shop","type":"Gider","amount":5,"category":"Kira","note":"same","date":1000}]}', encoding='utf-8')
+        # Verified with Java's UUID.nameUUIDFromBytes on the exact fixture file and "#0".
+        generated = 'efc1821f-864b-3cf8-9a34-04a6ec3adc4e'
+        current = self.backup('current.json', [row('original-cloud-id'), row(generated)])
+        result = compare(load_backup(current), load_backup(original))
+        flags = [r['matches_app_legacy_import_id'] for r in result['equal_content_groups'][0]['current_rows']]
+        self.assertEqual(flags, [False, True])
+        self.assertEqual(result['deletion_candidates'], [])
+
     def test_inputs_cannot_be_overwritten(self):
         original = self.backup('original.json', [row(None)], 1)
         current = self.backup('current.json', [row('a')])

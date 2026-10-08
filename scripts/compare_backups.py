@@ -4,6 +4,7 @@ from collections import defaultdict
 from decimal import Decimal
 import hashlib
 import json
+import uuid
 from pathlib import Path
 
 
@@ -27,10 +28,14 @@ def load_backup(path):
             raise ValueError(f'Invalid amount/date in row {index}')
         category, note = item.get('category') or '', item.get('note') or ''
         identity = item.get('syncId') or None
+        if isinstance(identity, str) and not identity.strip():
+            identity = None
         if not isinstance(category, str) or not isinstance(note, str) or (identity is not None and not isinstance(identity, str)):
             raise ValueError(f'Invalid text/identity in row {index}')
         rows.append(dict(row=index, business=business, type=kind, amount=amount,
-                         category=category, note=note, date=int(date), syncId=identity))
+                         category=category, note=note, date=int(date), syncId=identity,
+                         # Exact compatibility with Java UUID.nameUUIDFromBytes(fileText + "#" + index).
+                         app_legacy_import_syncId=str(uuid.UUID(bytes=hashlib.md5(raw + b'#' + str(index-1).encode(), usedforsecurity=False).digest(), version=3)) if identity is None else None))
     return dict(file=Path(path).name, sha256=hashlib.sha256(raw).hexdigest(), rows=rows)
 
 
@@ -61,14 +66,16 @@ def compare(current, reference):
         if len(rows) <= 1 and not (original and len(rows) > len(original)):
             continue
         example = rows[0]
+        legacy_ids = {r['app_legacy_import_syncId'] for r in original if r['app_legacy_import_syncId']}
         groups.append(dict(
             content={k: str(example[k]) if k == 'amount' else example[k]
                      for k in ('business', 'type', 'amount', 'category', 'note', 'date')},
             current_count=len(rows), reference_count=len(original),
             additional_rows_compared_with_reference=max(0, len(rows)-len(original)) if original else None,
             current_rows=[dict(row=r['row'], syncId=r['syncId'],
-                               identity_present_in_reference=bool(r['syncId'] and r['syncId'] in reference_ids)) for r in rows],
-            reference_rows=[dict(row=r['row'], syncId=r['syncId']) for r in original]))
+                               identity_present_in_reference=bool(r['syncId'] and r['syncId'] in reference_ids),
+                               matches_app_legacy_import_id=bool(r['syncId'] and r['syncId'] in legacy_ids)) for r in rows],
+            reference_rows=[dict(row=r['row'], syncId=r['syncId'], app_legacy_import_syncId=r['app_legacy_import_syncId']) for r in original]))
     return dict(
         read_only=True,
         note='Equal content does not prove duplication. Preserve legitimate repeated entries; review IDs and reference multiplicities before changing any data.',
