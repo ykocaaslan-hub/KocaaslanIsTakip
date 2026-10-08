@@ -227,7 +227,13 @@ public class MainActivityTest {
         DbHelper db=field("db");assertEquals(4,db.all().size());assertEquals(3,db.archivedCount());assertEquals(1,db.count("Yavuz Kocaaslan"));assertTrue(Arrays.stream(activity.getFilesDir().listFiles()).anyMatch(f->f.getName().startsWith("Arsivleme_Oncesi_")));
     }
     @Test public void reviewedRepairRechecksAccountWhenConfirming()throws Exception {
-        java.lang.reflect.Method repair=MainActivity.class.getDeclaredMethod("repairBackup",android.net.Uri.class);repair.setAccessible(true);repair.invoke(activity,reviewedFixture());cloud.when(CloudSync::uid).thenReturn("other-account");org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();assertEquals(1,((DbHelper)field("db")).archivedCount());assertEquals(4,((DbHelper)field("db")).all().size());assertTrue(dialogMessage(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()).contains("başka cihaz veya hesap"));
+        java.lang.reflect.Method repair=MainActivity.class.getDeclaredMethod("repairBackup",android.net.Uri.class);repair.setAccessible(true);repair.invoke(activity,reviewedFixture());
+        cloud.when(CloudSync::uid).thenReturn("other-account");
+        org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals("Changed account must not archive targets",1,((DbHelper)field("db")).archivedCount());
+        assertEquals("All records must remain",4,((DbHelper)field("db")).all().size());
+        assertTrue(dialogMessage(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()).contains("başka cihaz veya hesap"));
     }
 
 }
