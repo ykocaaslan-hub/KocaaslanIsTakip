@@ -215,5 +215,19 @@ public class MainActivityTest {
         org.json.JSONObject a=new org.json.JSONObject(new String((byte[])diagnostic.invoke(activity),java.nio.charset.StandardCharsets.UTF_8)),b=new org.json.JSONObject(new String((byte[])diagnostic.invoke(activity),java.nio.charset.StandardCharsets.UTF_8));
         assertEquals(a.getJSONObject("diagnostics").getString("installationId"),b.getJSONObject("diagnostics").getString("installationId"));assertEquals(BuildConfig.BUILD_REVISION,a.getJSONObject("diagnostics").getString("buildRevision"));assertEquals(db.byId(id).syncId,a.getJSONObject("diagnostics").getJSONArray("pendingSyncIds").getString(0));assertEquals(1,BackupData.read(a.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)).rows.size());assertEquals(1,db.all().size());
     }
+    private android.net.Uri reviewedFixture()throws Exception {
+        DbHelper db=field("db");List<Transaction> rows=new ArrayList<>(ReviewedRepairTest.targets());rows.addAll(ReviewedRepairTest.retained());db.mergeBackup(rows);
+        activity.getSharedPreferences("settings",0).edit().putString("installation_id","phone-device").commit();cloud.when(CloudSync::projectId).thenReturn("project");cloud.when(CloudSync::uid).thenReturn("same-account");
+        java.io.File file=new java.io.File(activity.getCacheDir(),"reviewed.json");java.nio.file.Files.write(file.toPath(),ReviewedRepairTest.bytes(ReviewedRepairTest.targets(),ReviewedRepairTest.retained()));return android.net.Uri.fromFile(file);
+    }
+    @Test public void reviewedRepairPreviewCancelThenApplyPreservesEveryRowAndSavesSnapshot()throws Exception {
+        android.net.Uri uri=reviewedFixture();java.lang.reflect.Method repair=MainActivity.class.getDeclaredMethod("repairBackup",android.net.Uri.class);repair.setAccessible(true);repair.invoke(activity,uri);
+        android.app.AlertDialog preview=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertTrue(dialogMessage(preview).contains("Arşivlenecek kopya: 2"));preview.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).performClick();assertEquals(1,((DbHelper)field("db")).archivedCount());
+        repair.invoke(activity,uri);org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        DbHelper db=field("db");assertEquals(4,db.all().size());assertEquals(3,db.archivedCount());assertEquals(1,db.count("Yavuz Kocaaslan"));assertTrue(Arrays.stream(activity.getFilesDir().listFiles()).anyMatch(f->f.getName().startsWith("Arsivleme_Oncesi_")));
+    }
+    @Test public void reviewedRepairRechecksAccountWhenConfirming()throws Exception {
+        java.lang.reflect.Method repair=MainActivity.class.getDeclaredMethod("repairBackup",android.net.Uri.class);repair.setAccessible(true);repair.invoke(activity,reviewedFixture());cloud.when(CloudSync::uid).thenReturn("other-account");org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();assertEquals(1,((DbHelper)field("db")).archivedCount());assertEquals(4,((DbHelper)field("db")).all().size());assertTrue(dialogMessage(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()).contains("başka cihaz veya hesap"));
+    }
 
 }

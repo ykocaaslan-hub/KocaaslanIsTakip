@@ -1,5 +1,39 @@
 # Issue #3 validation
 
+## Reviewed device comparison repair
+
+Two new device backups confirmed that the shared identities, contents, versions and
+archive states agree, but the phone retains additional identities from an older
+migration. The user explicitly approved the tablet as the baseline. This is separate
+from legacy-file import reversal: startup does not deduplicate matching content.
+Neither backup proves when the extra identities arrived or whether absent cloud
+documents are cached locally; no claim of a live server root cause is made.
+
+`scripts/prepare_reviewed_repair.py --approve-reference` prepares an explicit-ID
+manifest from reviewed device backups. It requires matching project/UID, two distinct
+installations, no pending record uploads and an unchanged shared baseline. Unmatched
+extra contents abort preparation. The manifest contains target/retained snapshots,
+exact pair IDs, input hashes and expected active totals. User files and manifest
+contents remain outside the repository; no personal data is embedded in the APK.
+
+Select the prepared manifest through **Çift kayıtları düzelt**, never Restore.
+The app binds it to the original phone installation/project/UID, validates all pairs,
+and previews resulting active totals. An archived reference counterpart is accepted
+only in this explicit, user-reviewed path (the legacy algorithm still requires active
+counterparts). Cancel performs no mutation. Confirmation rechecks the account,
+saves a full private backup and validates every target/retained snapshot atomically.
+A changed or missing target/counterpart aborts all archiving. New unrelated rows remain
+unchanged. Reapplying cannot create identities or reactivate archived rows.
+
+Only `archived`, local version and outbox state change on existing target IDs. Full
+payloads propagate by the existing sync path; absent targets on the tablet arrive as
+archives and do not change its active list. The two-database mock-server test starts
+with clean phone-only historical IDs, applies the manifest, repeats both restarts
+and snapshots and asserts convergence without deleting rows or changing active
+baseline totals. Tests also cover stale edits, archived reference state changes,
+wrong installation/account, cancel, automatic backup and account changes during
+confirmation. Live post-repair counts remain to be verified on the user's devices.
+
 The app retains `kocaaslan_is_takip.db` and upgrades it in place to schema 4.
 No record is removed or combined because its content resembles another record.
 Missing/duplicate sync IDs are repaired without deleting rows. Existing IDs remain

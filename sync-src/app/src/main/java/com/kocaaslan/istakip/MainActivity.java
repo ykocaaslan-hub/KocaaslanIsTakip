@@ -349,12 +349,15 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         backup.put("diagnostics",info);return backup.toString(2).getBytes(StandardCharsets.UTF_8);
     }
     private BackupData readBackup(Uri u)throws Exception {
+        return BackupData.read(readDocument(u));
+    }
+    private byte[] readDocument(Uri u)throws Exception {
         ByteArrayOutputStream out=new ByteArrayOutputStream();
         try(InputStream is=getContentResolver().openInputStream(u)){
             if(is==null)throw new IOException("Yedek açılamadı");byte[] buf=new byte[4096];int n;
             while((n=is.read(buf))!=-1){if(out.size()+n>10*1024*1024)throw new IOException("Yedek çok büyük");out.write(buf,0,n);}
         }
-        return BackupData.read(out.toByteArray());
+        return out.toByteArray();
     }
     private void restoreBackup(Uri u)throws Exception{
         BackupData backup=readBackup(u);List<Transaction> rows=backup.rows;boolean missingIdentity=backup.missingIdentity;
@@ -385,8 +388,8 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     private void beginRepair(){
         new AlertDialog.Builder(this).setTitle("Çift kayıtları düzelt")
-            .setMessage("Kopyalar oluşmadan önce aldığınız eski yedeği seçin (örneğin 10:30 yedeği). Bu dosya geri yüklenmeyecek; geri yüklemenin eklediği kopyaların kimlikleri doğrulanacak.\n\nKopyalar silinmeden arşivde korunacak, gelir/gider toplamlarına katılmayacak. Yeni veya değişmiş işlemler korunur.")
-            .setNegativeButton("Vazgeç",null).setPositiveButton("Eski yedeği seç",(d,w)->{
+            .setMessage("İncelenmiş düzeltme dosyasını veya kopyalar oluşmadan önceki kimliksiz eski yedeği seçin. Bu dosya geri yüklenmeyecek; yalnızca doğrulanan kayıt kimlikleri önizlemeye alınacak. Güncel telefon/tablet yedeği tek başına düzeltme dosyası değildir.\n\nKopyalar silinmeden arşivde korunacak, gelir/gider toplamlarına katılmayacak. Yeni veya değişmiş işlemler korunur.")
+            .setNegativeButton("Vazgeç",null).setPositiveButton("Dosyayı seç",(d,w)->{
                 Intent i=new Intent("android.intent.action.OPEN_DOCUMENT");i.setType("application/json");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,REQ_REPAIR);
             }).show();
     }
@@ -395,9 +398,17 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         try(FileOutputStream out=new FileOutputStream(file)){out.write(BackupData.write(db.all()));out.getFD().sync();}
     }
     private void repairBackup(Uri u)throws Exception {
-        BackupData source=readBackup(u);
-        if(!source.allMissingIdentity)throw new IOException("Kopyalar oluşmadan önceki kimliksiz eski yedeği seçin. Güncel yedek bu işlem için kullanılamaz.");
-        BackupRepair.Plan plan=db.previewRepair(source.rows);
+        byte[] bytes=readDocument(u);
+        final ReviewedRepair reviewed=ReviewedRepair.APP.equals(new JSONObject(new String(bytes,StandardCharsets.UTF_8)).optString("app"))?ReviewedRepair.read(bytes):null;
+        BackupRepair.Plan plan;
+        if(reviewed!=null){
+            reviewed.checkDevice(prefs.getString("installation_id",""),CloudSync.projectId(),CloudSync.uid());
+            plan=BackupRepair.reviewedPlan(reviewed,db.all());
+        }else{
+            BackupData source=BackupData.read(bytes);
+            if(!source.allMissingIdentity)throw new IOException("İncelenmiş düzeltme dosyasını veya kimliksiz eski yedeği seçin. Güncel yedek bu işlem için kullanılamaz.");
+            plan=db.previewRepair(source.rows);
+        }
         String details="Arşivlenecek kopya: "+plan.targets.size()+"\nZaten arşivde: "+plan.alreadyArchived+"\nKimliği bulunmayan: "+plan.missing+"\nİçeriği değişmiş, korunacak: "+plan.changed+"\nAsıl kaydı doğrulanamayan, korunacak: "+plan.withoutOriginal;
         if(plan.targets.isEmpty()){
             new AlertDialog.Builder(this).setTitle("Arşivlenecek kopya bulunamadı").setMessage(details+"\n\nMevcut kayıtlar değişmedi. Daha önce arşivlenmiş kayıtlar yeniden işlenmez.").setPositiveButton("Tamam",null).show();return;
@@ -409,7 +420,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
             .setNeutralButton("Mevcut kayıtları yedekle",(d,w)->beginBackup())
             .setPositiveButton("Kopyaları arşivle",(d,w)->{
                 int count;
-                try{saveRepairSnapshot();count=db.archiveRepair(plan);}catch(Exception e){
+                try{if(reviewed!=null)reviewed.checkDevice(prefs.getString("installation_id",""),CloudSync.projectId(),CloudSync.uid());saveRepairSnapshot();count=db.archiveRepair(plan);}catch(Exception e){
                     new AlertDialog.Builder(this).setTitle("Arşivleme uygulanmadı").setMessage("Kayıtlar değişmedi.\n"+e.getMessage()).setPositiveButton("Tamam",null).show();return;
                 }
                 showAllRecords();

@@ -66,4 +66,12 @@ public class TwoDeviceSyncTest {
         offline=false;ps.flush();idle();assertEquals(1,tablet.archivedCount());assertEquals(2,tablet.all().size());assertTrue(phone.pending().isEmpty());
         phone.undoArchive();ps.flush();idle();assertEquals(0,tablet.archivedCount());assertEquals(2,phone.count("shop"));assertEquals(2,tablet.count("shop"));assertEquals(2,server.size());
     }
+    @Test public void reviewedPhoneOnlyMigrationIdsBecomeArchivesOnBothDevicesWithoutChangingActiveBaseline()throws Exception {
+        List<Transaction> refs=ReviewedRepairTest.retained(),extra=ReviewedRepairTest.targets();tablet.mergeBackup(refs);phone.mergeBackup(refs);phone.mergeBackup(extra);
+        for(Transaction t:phone.all())phone.markSynced(t.syncId,t.updatedAt);
+        start();assertEquals(2,server.size());assertEquals(4,phone.all().size());assertEquals(2,tablet.all().size());assertEquals(3,phone.count("Yavuz Kocaaslan"));
+        ReviewedRepair source=ReviewedRepair.read(ReviewedRepairTest.bytes(extra,refs));phone.archiveRepair(BackupRepair.reviewedPlan(source,phone.all()));ps.flush();idle();
+        for(int i=0;i<8;i++){ps.remove();ts.remove();phone.close();tablet.close();phone=new DbHelper(context,"test-phone.db");tablet=new DbHelper(context,"test-tablet.db");start();replay();idle();}
+        assertEquals(4,phone.all().size());assertEquals(4,tablet.all().size());assertEquals(4,server.size());assertEquals(3,phone.archivedCount());assertEquals(3,tablet.archivedCount());assertEquals(1,phone.count("Yavuz Kocaaslan"));assertEquals(1,tablet.count("Yavuz Kocaaslan"));assertEquals(5,tablet.totalStats("Yavuz Kocaaslan")[1],0);assertTrue(phone.pending().isEmpty());assertTrue(tablet.pending().isEmpty());
+    }
 }

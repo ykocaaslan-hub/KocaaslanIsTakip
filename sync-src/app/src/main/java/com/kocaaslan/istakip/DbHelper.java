@@ -134,7 +134,7 @@ public class DbHelper extends SQLiteOpenHelper {
     public int archiveRepair(BackupRepair.Plan preview) {
         SQLiteDatabase database=getWritableDatabase();database.beginTransaction();
         try {
-            BackupRepair.Plan current=previewRepair(preview.reference);
+            BackupRepair.Plan current=preview.reviewed==null?previewRepair(preview.reference):BackupRepair.reviewedPlan(preview.reviewed,all());
             // Recheck every target and retained counterpart after the preview, inside the write transaction.
             if(!preview.sameSelection(current))throw new IllegalStateException("Kayıtlar önizlemeden sonra değişti. Eski yedeği yeniden seçin.");
             for(Transaction t:current.targets) {
