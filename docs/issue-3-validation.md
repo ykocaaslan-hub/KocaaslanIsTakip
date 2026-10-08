@@ -70,3 +70,23 @@ rather than rewriting it at build time.
 Two-device/live-project verification is still necessary to establish that the original
 phone/tablet problem is resolved. Automated tests use local SQLite and mocked Firebase;
 they do not validate live credentials, rules, network or concurrent device clocks.
+
+## Restore visibility follow-up
+
+Restoring an old backup previously left the current date filter, search and business
+selection intact. Historical rows could therefore be absent from the list while the
+all-date totals contained amounts. Restore now opens All, clears search, selects a
+business present in the backup, and shows a persistent report: newly inserted IDs,
+existing IDs retained, explicit deletion tombstones retained, and each business's
+current record count/income/expense/net. The confirmation shows the backup's own
+counts/totals separately from the merged device totals. A filtered empty list states
+how many rows are stored and offers Show all records. General totals label the
+business and record count. Errors reading/parsing/importing a backup remain visible
+in a dialog; a network failure after a successful local import does not report the
+import as failed.
+
+Additional regression cases use historical v1 backups, an active search, another
+business, repeated import, recreation, retained local rows and deletion tombstones,
+a transaction rollback on invalid input, and Firebase unavailable after import.
+These tests validate visibility and calculations for fixture data, not the user's
+actual backup or amounts, which have not been provided.

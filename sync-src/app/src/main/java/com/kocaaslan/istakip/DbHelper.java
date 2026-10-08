@@ -83,7 +83,12 @@ public class DbHelper extends SQLiteOpenHelper {
     // Compatibility entry point: restores now merge instead of clearing existing records.
     public void replaceAll(List<Transaction> rows) { mergeBackup(rows); }
 
-    public void mergeBackup(List<Transaction> rows) {
+    public static final class RestoreResult {
+        public int added, alreadyPresent, previouslyDeleted;
+    }
+
+    public RestoreResult mergeBackup(List<Transaction> rows) {
+        RestoreResult result=new RestoreResult();
         SQLiteDatabase database=getWritableDatabase();
         database.beginTransaction();
         try {
@@ -94,10 +99,25 @@ public class DbHelper extends SQLiteOpenHelper {
                 v.put("updated_at",t.updatedAt>0?t.updatedAt:System.currentTimeMillis());
                 v.put("sync_state",1);
                 // A backup may add absent IDs, never overwrite a current row or undo a deletion.
-                if (!hasDeletion(identity)) database.insertWithOnConflict(T,null,v,SQLiteDatabase.CONFLICT_IGNORE);
+                if(hasDeletion(identity))result.previouslyDeleted++;
+                else if(hasIdentity(identity))result.alreadyPresent++;
+                else { database.insertOrThrow(T,null,v);result.added++; }
             }
             database.setTransactionSuccessful();
         } finally { database.endTransaction(); }
+        return result;
+    }
+
+    public int count(String business) {
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM "+T+" WHERE business=?",new String[]{business})) {
+            return c.moveToFirst()?c.getInt(0):0;
+        }
+    }
+
+    private boolean hasIdentity(String id) {
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT id FROM "+T+" WHERE sync_id=?",new String[]{id})) {
+            return c.moveToFirst();
+        }
     }
 
     public void delete(long id) {

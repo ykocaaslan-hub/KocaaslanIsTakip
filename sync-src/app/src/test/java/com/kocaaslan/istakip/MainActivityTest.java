@@ -60,6 +60,67 @@ public class MainActivityTest {
         }
         assertEquals(2,db.all().size());assertEquals(original.syncId,db.byId(id).syncId);
     }
+    private android.net.Uri backupFile(String name,int version,Transaction... rows)throws Exception{
+        org.json.JSONArray values=new org.json.JSONArray();
+        for(Transaction t:rows){
+            org.json.JSONObject row=new org.json.JSONObject();row.put("business",t.business);row.put("type",t.type);row.put("amount",t.amount);row.put("category",t.category);row.put("note",t.note);row.put("date",t.date);
+            if(version==2){row.put("syncId",t.syncId);row.put("updatedAt",t.updatedAt);}values.put(row);
+        }
+        org.json.JSONObject backup=new org.json.JSONObject();backup.put("app","Kocaaslan İş Takip");backup.put("version",version);backup.put("transactions",values);
+        java.io.File file=new java.io.File(activity.getCacheDir(),name);
+        java.nio.file.Files.write(file.toPath(),backup.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));return android.net.Uri.fromFile(file);
+    }
+    private android.app.AlertDialog importBackup(android.net.Uri uri)throws Exception{
+        java.lang.reflect.Method restore=MainActivity.class.getDeclaredMethod("restoreBackup",android.net.Uri.class);restore.setAccessible(true);restore.invoke(activity,uri);
+        android.app.AlertDialog confirm=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();confirm.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();return org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+    }
+    private String dialogMessage(android.app.AlertDialog dialog){return ((TextView)dialog.findViewById(android.R.id.message)).getText().toString();}
+    @Test public void oldBackupBecomesVisibleAfterRestoreWithSearchClearedAndCorrectTotals()throws Exception{
+        EditText search=field("search");search.setText("does not match anything");
+        android.net.Uri uri=backupFile("legacy.json",1,
+                new Transaction(0,"Yavuz Kocaaslan","Gelir",100,"Satış","old",1000),
+                new Transaction(0,"Yavuz Kocaaslan","Gider",25,"Kira","old",2000));
+        android.app.AlertDialog result=importBackup(uri);
+        TransactionAdapter adapter=field("adapter");assertEquals(2,adapter.getCount());assertEquals(0,((Spinner)field("filter")).getSelectedItemPosition());assertEquals("",((EditText)field("search")).getText().toString());assertEquals(3,(int)field("dashboardPeriod"));
+        java.text.NumberFormat money=field("money");assertEquals(money.format(100),((TextView)field("dayIncome")).getText().toString());assertEquals(money.format(25),((TextView)field("dayExpense")).getText().toString());assertEquals(money.format(75),((TextView)field("dayNet")).getText().toString());
+        assertTrue(dialogMessage(result).contains("Yeni eklenen: 2"));assertTrue(((TextView)field("recordsStatus")).getText().toString().contains("2 / 2"));
+        LinearLayout root=field("root");LinearLayout frame=(LinearLayout)((ScrollView)root.getParent()).getParent();
+        frame.measure(View.MeasureSpec.makeMeasureSpec(360,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(640,View.MeasureSpec.EXACTLY));frame.layout(0,0,360,640);
+        assertEquals(2,((ListView)field("list")).getChildCount());
+        result.dismiss();importBackup(uri);assertEquals(2,((TransactionAdapter)field("adapter")).getCount());assertTrue(dialogMessage(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()).contains("Yeni eklenen: 0"));
+    }
+    @Test public void restoreSelectsBackupBusinessAndRetainsOtherBusinessRecords()throws Exception{
+        DbHelper db=field("db");long existing=db.add("Yavuz Kocaaslan","Gelir",70,"Satış","keep",1000);
+        android.net.Uri uri=backupFile("canteen.json",1,new Transaction(0,"Kocaaslan Kantin","Gider",15,"Kira","old",2000));
+        android.app.AlertDialog result=importBackup(uri);
+        assertEquals("Kocaaslan Kantin",(String)field("business"));assertEquals(1,((TransactionAdapter)field("adapter")).getCount());assertNotNull(db.byId(existing));
+        String message=dialogMessage(result);assertTrue(message.contains("Yavuz Kocaaslan: 1 kayıt"));assertTrue(message.contains("Kocaaslan Kantin: 1 kayıt"));
+        result.dismiss();button(activity.getWindow().getDecorView(),"Genel Toplamlar").performClick();
+        android.app.AlertDialog totals=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();java.text.NumberFormat money=field("money");
+        assertTrue(viewText(totals.getWindow().getDecorView()).contains("Gider: "+money.format(15)));
+        assertTrue(viewText(totals.getWindow().getDecorView()).contains("GENEL TOPLAMI — 1 kayıt"));
+    }
+    private String viewText(View v){
+        StringBuilder text=new StringBuilder();if(v instanceof TextView)text.append(((TextView)v).getText()).append("\n");
+        if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++)text.append(viewText(((ViewGroup)v).getChildAt(i)));return text.toString();
+    }
+    @Test public void emptyFilteredListExplainsHiddenRecordsAndProvidesAllRecordsAction()throws Exception{
+        DbHelper db=field("db");db.add("Yavuz Kocaaslan","Gider",12,"Kira","old",1000);controller.pause().resume();
+        assertEquals(0,((TransactionAdapter)field("adapter")).getCount());assertTrue(((TextView)field("recordsStatus")).getText().toString().contains("0 / 1"));
+        Button show=field("allRecordsButton");assertEquals(View.VISIBLE,show.getVisibility());show.performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals(1,((TransactionAdapter)field("adapter")).getCount());assertEquals(View.GONE,((Button)field("allRecordsButton")).getVisibility());
+    }
+    @Test public void restoredRecordsRemainVisibleAfterActivityRecreation()throws Exception{
+        importBackup(backupFile("rotation.json",1,new Transaction(0,"Kocaaslan Kantin","Gider",15,"Kira","old",2000)));
+        controller.recreate();activity=controller.get();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals("Kocaaslan Kantin",(String)field("business"));assertEquals(0,((Spinner)field("filter")).getSelectedItemPosition());assertEquals(1,((TransactionAdapter)field("adapter")).getCount());
+    }
+    @Test public void restoreReportsSuccessLocallyEvenWhenNetworkStartupFails()throws Exception{
+        cloud.when(CloudSync::signedIn).thenThrow(new IllegalStateException("Firebase unavailable"));
+        android.app.AlertDialog result=importBackup(backupFile("offline.json",1,new Transaction(0,"Yavuz Kocaaslan","Gider",15,"Kira","old",2000)));
+        assertTrue(dialogMessage(result).contains("Yeni eklenen: 1"));assertEquals(1,((TransactionAdapter)field("adapter")).getCount());assertEquals(1,((DbHelper)field("db")).pending().size());
+    }
     @Test public void bottomNavigationRemainsOutsideScrollableContent()throws Exception{
         LinearLayout root=field("root");assertTrue(root.getParent() instanceof ScrollView);
         LinearLayout frame=(LinearLayout)((ScrollView)root.getParent()).getParent();assertEquals(2,frame.getChildCount());

@@ -57,6 +57,16 @@ public class DbHelperTest {
         db=new DbHelper(context);assertEquals(3,db.all().size());assertEquals("stable",db.all().get(0).syncId);
         Set<String> ids=new HashSet<>();for(Transaction t:db.all())ids.add(t.syncId);assertEquals(3,ids.size());assertFalse(ids.contains(null));
     }
+    @Test public void restoreSummaryDistinguishesNewExistingAndDeletedIds(){
+        db.mergeBackup(Arrays.asList(row("existing",12,5)));long deleted=db.add("shop","Gider",8,"Kira","",1000);String deletedId=db.byId(deleted).syncId;db.delete(deleted);
+        DbHelper.RestoreResult result=db.mergeBackup(Arrays.asList(row("existing",13,9),row("new",14,7),row(deletedId,15,8)));
+        assertEquals(1,result.added);assertEquals(1,result.alreadyPresent);assertEquals(1,result.previouslyDeleted);assertEquals(2,db.count("shop"));assertEquals(12,db.totalStats("shop")[1],0);
+    }
+    @Test public void invalidRestoreRowRollsBackEntireImportWithoutChangingExistingRecords(){
+        long current=db.add("shop","Gelir",20,"Satış","keep",1000);
+        try{db.mergeBackup(Arrays.asList(row("new",14,7),new Transaction(0,null,"Gider",9,"","",2000,"invalid",12)));fail("Invalid row must fail");}catch(android.database.sqlite.SQLiteConstraintException expected){}
+        assertEquals(1,db.all().size());assertNotNull(db.byId(current));assertEquals(0,db.count("other"));
+    }
     @Test public void totalsAndListRespectInclusiveStartExclusiveEndAndBusiness(){
         db.add("shop","Gelir",100,"","",1000);db.add("shop","Gider",20,"","",1000);
         db.add("shop","Gider",30,"","",1999);db.add("shop","Gider",40,"","",2000);db.add("other","Gider",999,"","",1000);
