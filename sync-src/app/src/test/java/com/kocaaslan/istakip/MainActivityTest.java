@@ -190,6 +190,8 @@ public class MainActivityTest {
     }
     private android.app.AlertDialog newForm()throws Exception {
         java.lang.reflect.Method method=MainActivity.class.getDeclaredMethod("showForm",String.class,Transaction.class);method.setAccessible(true);method.invoke(activity,"Gelir",null);
+        // AlertDialog delivers OnShow on the main queue before a user can tap Save.
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
         android.app.AlertDialog dialog=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();input(dialog.getWindow().getDecorView(),"Tutar (₺)").setText("2");return dialog;
     }
     @Test public void successfulLocalSaveClosesFormEvenWhenSyncStartupThrows()throws Exception {
