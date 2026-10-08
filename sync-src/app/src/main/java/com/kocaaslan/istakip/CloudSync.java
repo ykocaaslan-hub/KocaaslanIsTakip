@@ -1,97 +1,119 @@
 package com.kocaaslan.istakip;
 
+import android.os.Handler;
+import android.os.Looper;
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.*;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class CloudSync {
-    private static boolean configured=false;
     private CloudSync() {}
-    private static synchronized FirebaseFirestore fs(){
-        FirebaseFirestore f=FirebaseFirestore.getInstance();
-        if(!configured){
-            try{ FirebaseFirestoreSettings st=new FirebaseFirestoreSettings.Builder().setPersistenceEnabled(false).build(); f.setFirestoreSettings(st); }catch(Exception ignored){}
-            configured=true;
-        }
-        return f;
-    }
+    // Firestore's default persistent cache survives process death. Never terminate the shared client.
+    private static FirebaseFirestore fs(){ return FirebaseFirestore.getInstance(); }
     public interface Result { void done(boolean ok, String error); }
     public interface Changed { void changed(); }
-    public interface UploadResult { void done(boolean ok, String error); }
-    public static void reconnect(Result cb){
-        FirebaseFirestore f=FirebaseFirestore.getInstance();
-        f.enableNetwork().addOnCompleteListener(y->cb.done(y.isSuccessful(),y.getException()==null?null:y.getException().getMessage()));
+    public static boolean signedIn(){ return uid()!=null; }
+    public static String email(){ FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser();return u==null?null:u.getEmail(); }
+    public static String projectId(){ return FirebaseApp.getInstance().getOptions().getProjectId(); }
+    public static String uid(){ FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser();return u==null?null:u.getUid(); }
+    private static String error(String stage,Exception e){
+        String code=e instanceof FirebaseFirestoreException?((FirebaseFirestoreException)e).getCode().name():e==null?"UNKNOWN":e.getClass().getSimpleName();
+        return stage+": "+code+(e==null?"":" — "+e.getMessage());
     }
-
-    public static boolean signedIn(){ try { return FirebaseAuth.getInstance().getCurrentUser()!=null; } catch (Exception e) { return false; } }
-    public static String email(){ try { FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser(); return u==null?null:u.getEmail(); } catch(Exception e){ return null; } }
-    public static String projectId(){ try { return FirebaseApp.getInstance().getOptions().getProjectId(); } catch(Exception e){ return null; } }
-    public static String uid(){ try { FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser(); return u==null?null:u.getUid(); } catch (Exception e) { return null; } }
     public static void signIn(String email,String password,Result cb){
-        FirebaseAuth.getInstance().signInWithEmailAndPassword(email,password).addOnCompleteListener(t->cb.done(t.isSuccessful(),t.getException()==null?null:t.getException().getMessage()));
+        FirebaseAuth.getInstance().signInWithEmailAndPassword(email,password).addOnCompleteListener(t->cb.done(t.isSuccessful(),t.isSuccessful()?null:error("AUTH",t.getException())));
     }
     public static void signOut(){ FirebaseAuth.getInstance().signOut(); }
+    public static void reconnect(Result cb){ fs().enableNetwork().addOnCompleteListener(t->cb.done(t.isSuccessful(),t.isSuccessful()?null:error("NETWORK",t.getException()))); }
     public static void diagnose(Result cb){
-        if(!signedIn()){ cb.done(false,"AUTH: Firebase oturumu yok"); return; }
-        String u=uid(), p=projectId(), e=email();
-        FirebaseFirestore old=FirebaseFirestore.getInstance();
-        old.terminate().addOnCompleteListener(z->{ configured=false; diagnoseFresh(cb,u,p,e); });
-    }
-    private static void diagnoseFresh(Result cb,String u,String p,String e){
-        FirebaseFirestore fresh=fs();
-        fresh.enableNetwork().addOnCompleteListener(net->{
-            DocumentReference ref=fresh.collection("kullanicilar").document(u).collection("tanilama").document("baglanti");
+        final String user=uid(),project=projectId();
+        if(user==null){ cb.done(false,"AUTH: Firebase oturumu yok");return; }
+        Handler handler=new Handler(Looper.getMainLooper());AtomicBoolean done=new AtomicBoolean();
+        Runnable timeout=()->{if(done.compareAndSet(false,true))cb.done(false,"PROJE: "+project+"\nUID: "+user+"\nFIRESTORE: Sunucu yanıtı bekleniyor; yerel kuyruk korunuyor.");};
+        handler.postDelayed(timeout,20000);
+        fs().enableNetwork().continueWithTask(net->{
+            if(!net.isSuccessful())throw net.getException();
+            DocumentReference ref=fs().collection("kullanicilar").document(user).collection("tanilama").document("baglanti");
             Map<String,Object> m=new HashMap<>();m.put("test",true);m.put("time",System.currentTimeMillis());
-            final boolean[] finished={false};
-            ref.set(m).continueWithTask(t->{if(!t.isSuccessful())throw t.getException();return ref.get(Source.SERVER);}).addOnCompleteListener(t->{
-                if(finished[0])return;finished[0]=true;
-                if(t.isSuccessful())cb.done(true,"AUTH OK\nPROJE: "+p+"\nE-POSTA: "+e+"\nUID: "+u+"\nFIRESTORE YAZ/OKU: OK");
-                else cb.done(false,"AUTH OK\nPROJE: "+p+"\nUID: "+u+"\nFIRESTORE: "+t.getException().getClass().getSimpleName()+": "+t.getException().getMessage());
-            });
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{if(!finished[0]){finished[0]=true;cb.done(false,"AUTH OK\nPROJE: "+p+"\nUID: "+u+"\nFIRESTORE: 20 saniyede sunucu yaniti yok");}},20000);
-        });
-    }
-
-    private static CollectionReference rows(){ return FirebaseFirestore.getInstance().collection("kullanicilar").document(uid()).collection("işlemler"); }
-
-    public static void upload(Transaction t){ upload(t,null); }
-    public static void upload(Transaction t, UploadResult cb){
-        if(!signedIn()){ if(cb!=null)cb.done(false,"Firebase oturumu yok"); return; }
-        if(t==null||t.syncId==null){ if(cb!=null)cb.done(false,"Kayit kimligi yok"); return; }
-        Map<String,Object> m=new HashMap<>();
-        m.put("business",t.business);m.put("type",t.type);m.put("amount",t.amount);m.put("category",t.category);m.put("note",t.note);m.put("date",t.date);m.put("updatedAt",t.updatedAt);
-        final boolean[] finished={false};
-        rows().document(t.syncId).set(m).addOnCompleteListener(x->{ finished[0]=true; if(cb!=null)cb.done(x.isSuccessful(),x.getException()==null?null:(x.getException().getClass().getSimpleName()+": "+x.getException().getMessage())); });
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{ if(!finished[0]){ finished[0]=true; if(cb!=null)cb.done(false,"30 saniye içinde Firebase yanıt vermedi. Ağ/Firestore bağlantısı beklemede."); } },30000);
-    }
-    public static void delete(String syncId){ if(signedIn()&&syncId!=null) rows().document(syncId).delete(); }
-
-    private static String fingerprint(DocumentSnapshot d){
-        String business=d.getString("business"),type=d.getString("type"),category=d.getString("category"),note=d.getString("note");
-        Double amount=d.getDouble("amount"); Long date=d.getLong("date");
-        return String.valueOf(business)+"|"+String.valueOf(type)+"|"+String.valueOf(amount)+"|"+String.valueOf(category)+"|"+String.valueOf(note)+"|"+String.valueOf(date);
-    }
-
-    public static ListenerRegistration listen(DbHelper local, Changed changed){
-        if(!signedIn())return null;
-        return rows().addSnapshotListener((snap,e)->{
-            if(e!=null||snap==null)return;
-
-            // Never delete cloud records by matching content: legitimate separate transactions
-            // may have identical amounts, notes and timestamps.
-            for(DocumentSnapshot d:snap.getDocuments()){
-                String business=d.getString("business"),type=d.getString("type"),category=d.getString("category"),note=d.getString("note");
-                Double amount=d.getDouble("amount");Long date=d.getLong("date"),updated=d.getLong("updatedAt");
-                if(business!=null&&type!=null&&amount!=null&&date!=null)
-                    local.upsertFromCloud(new Transaction(0,business,type,amount,category==null?"Diğer":category,note==null?"":note,date,d.getId(),updated==null?0:updated));
+            return ref.set(m).continueWithTask(t->{if(!t.isSuccessful())throw t.getException();return ref.get(Source.SERVER);});
+        }).addOnCompleteListener(t->{
+            if(done.compareAndSet(false,true)){
+                handler.removeCallbacks(timeout);
+                cb.done(t.isSuccessful(),"PROJE: "+project+"\nUID: "+user+"\n"+(t.isSuccessful()?"AUTH / FIRESTORE YAZ / OKU: OK":error("FIRESTORE",t.getException())));
             }
-            changed.changed();
         });
     }
+    private static CollectionReference rows(String user){ return fs().collection("kullanicilar").document(user).collection("işlemler"); }
+    private static Map<String,Object> values(Transaction t){
+        Map<String,Object> m=new HashMap<>();m.put("business",t.business);m.put("type",t.type);m.put("amount",t.amount);
+        m.put("category",t.category);m.put("note",t.note);m.put("date",t.date);m.put("updatedAt",t.updatedAt);m.put("deleted",false);m.put("archived",t.archived);return m;
+    }
+    private static void apply(DbHelper local,DocumentSnapshot d){
+        Long updated=d.getLong("updatedAt");long version=updated==null?0:updated;
+        if(Boolean.TRUE.equals(d.getBoolean("deleted"))){local.applyCloudDeletion(d.getId(),version);return;}
+        String business=d.getString("business"),type=d.getString("type"),category=d.getString("category"),note=d.getString("note");
+        Double amount=d.getDouble("amount");Long date=d.getLong("date");
+        if(business==null||(!"Gelir".equals(type)&&!"Gider".equals(type))||amount==null||(Double.isNaN(amount)||Double.isInfinite(amount))||amount<=0||date==null||date<=0)
+            throw new IllegalArgumentException("Geçersiz bulut kaydı: "+d.getId());
+        local.upsertFromCloud(new Transaction(0,business,type,amount,category==null?"Diğer":category,note==null?"":note,date,d.getId(),version,Boolean.TRUE.equals(d.getBoolean("archived"))));
+    }
 
-    // Eski surumlerle uyumluluk icin birakildi; 1.4.2 acilista bunu cagirmiyor.
-    public static void uploadAll(DbHelper local){ if(signedIn()) for(Transaction t:local.all()) upload(t); }
+    public static Session listen(DbHelper local,Changed changed,Result status){
+        String user=uid();if(user==null)return null;
+        return new Session(local,changed,status,user);
+    }
+    public static final class Session implements ListenerRegistration {
+        private final DbHelper local;private final Changed changed;private final Result status;private final String user;
+        private final Handler handler=new Handler(Looper.getMainLooper());private final Set<String> inFlight=new HashSet<>();
+        private ListenerRegistration listener;private boolean active=true;private String lastError;
+        private final Runnable retry=new Runnable(){public void run(){if(valid()){flush();handler.postDelayed(this,10000);}}};
+        private Session(DbHelper local,Changed changed,Result status,String user){
+            this.local=local;this.changed=changed;this.status=status;this.user=user;
+            listener=rows(user).addSnapshotListener(MetadataChanges.INCLUDE,(snap,e)->{
+                if(!valid())return;
+                if(e!=null){report(error("FIRESTORE LISTEN",e));return;}
+                if(snap==null)return;
+                for(DocumentSnapshot d:snap.getDocuments()){
+                    if(d.getMetadata().hasPendingWrites())continue;
+                    try{apply(local,d);}catch(Exception ex){report(error("DOWNLOAD",ex));}
+                }
+                changed.changed();flush();
+            });
+            reconnect((ok,e)->{if(valid()){if(!ok)report(e);else flush();}});
+            handler.postDelayed(retry,10000);
+        }
+        private boolean valid(){return active&&user.equals(uid());}
+        private void report(String message){if(!message.equals(lastError)){lastError=message;status.done(false,message);}}
+        public void flush(){
+            if(!valid())return;
+            for(Transaction t:local.pending())send(t.syncId,t.updatedAt,values(t),false);
+            for(Map.Entry<String,Long> d:local.pendingDeletions().entrySet()){
+                Map<String,Object> m=new HashMap<>();m.put("deleted",true);m.put("updatedAt",d.getValue());send(d.getKey(),d.getValue(),m,true);
+            }
+        }
+        private void send(String id,long version,Map<String,Object> value,boolean deletion){
+            if(!inFlight.add(id))return;
+            DocumentReference ref=rows(user).document(id);
+            // Transactions retry concurrent writes and refuse to overwrite a newer remote version.
+            // Offline failures leave SQLite's durable outbox intact for reconnect/restart.
+            fs().runTransaction(tx->{
+                DocumentSnapshot remote=tx.get(ref);Long rv=remote.getLong("updatedAt");
+                if(!deletion && remote.exists() && (Boolean.TRUE.equals(remote.getBoolean("deleted")) || (rv!=null&&rv>version)))return remote;
+                if(deletion && rv!=null&&rv>version)value.put("updatedAt",rv+1);
+                tx.set(ref,value,SetOptions.merge());return (DocumentSnapshot)null;
+            }).addOnCompleteListener(task->{
+                inFlight.remove(id);if(!valid())return;
+                if(!task.isSuccessful()){report(error(deletion?"DELETE":"UPLOAD",task.getException()));return;}
+                if(deletion)local.markDeletionSynced(id,version);else local.markSynced(id,version);
+                if(task.getResult()!=null){try{apply(local,task.getResult());}catch(Exception ex){report(error("DOWNLOAD",ex));}}
+                lastError=null;changed.changed();status.done(true,null);
+                // A local edit made during this upload still has a different version and stays pending.
+                handler.post(()->{if(valid())flush();});
+            });
+        }
+        @Override public void remove(){active=false;handler.removeCallbacksAndMessages(null);if(listener!=null){listener.remove();listener=null;}}
+    }
 }
