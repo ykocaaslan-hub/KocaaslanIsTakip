@@ -47,7 +47,7 @@ jobs:
           suites = [ET.parse(p).getroot() for p in Path('app/app/build/test-results/testDebugUnitTest').glob('TEST-*.xml')]
           tests = sum(int(s.attrib['tests']) for s in suites)
           failures = sum(int(s.attrib['failures']) + int(s.attrib['errors']) for s in suites)
-          assert tests >= 22 and failures == 0, (tests, failures)
+          assert tests >= 37 and failures == 0, (tests, failures)
           print(f'Regression tests: {tests} passed, {failures} failures/errors')
           PYTEST
       - name: Imzalama dosyasini yerlestir

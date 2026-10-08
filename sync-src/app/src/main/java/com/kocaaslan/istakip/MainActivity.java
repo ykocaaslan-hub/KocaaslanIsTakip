@@ -27,7 +27,7 @@ import java.util.*;
 
 public class MainActivity extends Activity implements TransactionAdapter.DeleteListener {
     private static final String B1="Yavuz Kocaaslan", B2="Kocaaslan Kantin";
-    private static final int REQ_CSV=1001, REQ_BACKUP=1002, REQ_RESTORE=1003;
+    private static final int REQ_CSV=1001, REQ_BACKUP=1002, REQ_RESTORE=1003, REQ_REPAIR=1004;
     private DbHelper db; private String business=B1; private int dashboardPeriod=0; private LinearLayout root, recordsBox;
     private TextView titleBusiness, dayIncome,dayExpense,dayNet, weekIncome,weekExpense,weekNet, monthIncome,monthExpense,monthNet, totalIncome,totalExpense,totalNet;
     private Button b1,b2; private EditText search; private Spinner filter; private ChartView chart; private TransactionAdapter adapter; private ListView list;
@@ -131,6 +131,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);String[] nav={"⌂\nAna Sayfa","☷\nKayıtlar","▥\nRaporlar","◔\nGenel Toplamlar"};for(int k=0;k<nav.length;k++){Button nb=button(nav[k],k==0?0xFF0B2C50:0xFF061C34,k==0?0xFFFFD21F:Color.WHITE);nb.setTextSize(13);if(k==0)nb.setOnClickListener(v->mainScroll.smoothScrollTo(0,0));else if(k==1)nb.setOnClickListener(v->{refreshList();mainScroll.smoothScrollTo(0,recordsStatus.getTop());});else if(k==2)nb.setOnClickListener(v->showCategoryReport());else if(k==3)nb.setOnClickListener(v->showGeneralBreakdown());bottom.addView(nb,new LinearLayout.LayoutParams(0,dp(70),1));}frame.addView(bottom,mp(0,0,0,0));
 
         LinearLayout acts=new LinearLayout(this);acts.setOrientation(LinearLayout.HORIZONTAL);Button csv=button("CSV / Excel",0xFF0B2C50,Color.WHITE);Button backup=button("Yedekle",0xFF0B2C50,Color.WHITE);Button restore=button("Geri Yükle",0xFF0B2C50,Color.WHITE);csv.setOnClickListener(v->beginCsv());backup.setOnClickListener(v->beginBackup());restore.setOnClickListener(v->beginRestore());acts.addView(csv,new LinearLayout.LayoutParams(0,dp(46),1));acts.addView(backup,new LinearLayout.LayoutParams(0,dp(46),1));acts.addView(restore,new LinearLayout.LayoutParams(0,dp(46),1));root.addView(acts);
+        Button repair=button("Çift kayıtları düzelt",0xFF0B2C50,Color.WHITE);repair.setOnClickListener(v->beginRepair());root.addView(repair,mp(0,8,0,0));
         search.setText(savedSearch);filter.setSelection(savedFilter);switchBusiness(business);
     }
 
@@ -266,7 +267,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
 
     @Override public void onDelete(Transaction t){new AlertDialog.Builder(this).setTitle("Kaydı sil").setMessage(fmtDate(t.date)+" tarihli "+t.category+" kaydı silinsin mi?").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{db.delete(t.id);syncTransaction(t.id);refresh();}).show();}
 
-    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v"+appVersion()).setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
+    private void settingsDialog(){String pin=prefs.getString("pin","");String[] opts={pin.isEmpty()?"PIN kilidi oluştur":"PIN kilidini değiştir","PIN kilidini kaldır","Tarih aralığı seç","Kategori raporu","Senkron Bilgisi","Uygulama hakkında","Arşivdeki kayıtlar"};new AlertDialog.Builder(this).setTitle("Ayarlar").setItems(opts,(d,which)->{if(which==0)setPin();else if(which==1){prefs.edit().remove("pin").apply();Toast.makeText(this,"PIN kilidi kaldırıldı",Toast.LENGTH_SHORT).show();}else if(which==2)chooseRange();else if(which==3)showCategoryReport();else if(which==4)showSyncInfo();else if(which==6)showArchive();else new AlertDialog.Builder(this).setTitle("Kocaaslan İş Takip v"+appVersion()).setMessage("Yavuz Kocaaslan ve Kocaaslan Kantin için kişisel ciro-gider ve kâr/zarar takip uygulaması. Veriler cihazda saklanır.").setPositiveButton("Tamam",null).show();}).show();}
     private void showSyncInfo(){
         String project=CloudSync.projectId(), email=CloudSync.email(), uid=CloudSync.uid();
         String msg="Durum: "+(CloudSync.signedIn()?"GİRİŞ YAPILMIŞ":"GİRİŞ YOK")+"\n\nFirebase Projesi: "+String.valueOf(project)+"\nE-posta: "+String.valueOf(email)+"\nUID: "+String.valueOf(uid)+"\n\nBağlantı testi için TEST ET düğmesine basın.";
@@ -282,25 +283,24 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
     private void beginBackup(){Intent i=new Intent("android.intent.action.CREATE_DOCUMENT");i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"Kocaaslan_IsTakip_Yedek_"+new SimpleDateFormat("yyyyMMdd_HHmm",Locale.US).format(new Date())+".json");startActivityForResult(i,REQ_BACKUP);}
     private void beginRestore(){Intent i=new Intent("android.intent.action.OPEN_DOCUMENT");i.setType("application/json");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,REQ_RESTORE);}
 
-    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;Uri u=data.getData();try{if(req==REQ_CSV)writeCsv(u);else if(req==REQ_BACKUP)writeBackup(u);else if(req==REQ_RESTORE)restoreBackup(u);}catch(Exception e){if(req==REQ_RESTORE)new AlertDialog.Builder(this).setTitle("Geri yükleme yapılamadı").setMessage("Mevcut kayıtlar değişmedi.\n"+e.getMessage()).setPositiveButton("Tamam",null).show();else Toast.makeText(this,"İşlem tamamlanamadı: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
+    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;Uri u=data.getData();try{if(req==REQ_CSV)writeCsv(u);else if(req==REQ_BACKUP)writeBackup(u);else if(req==REQ_RESTORE)restoreBackup(u);else if(req==REQ_REPAIR)repairBackup(u);}catch(Exception e){if(req==REQ_RESTORE||req==REQ_REPAIR)new AlertDialog.Builder(this).setTitle(req==REQ_REPAIR?"Arşivleme yapılamadı":"Geri yükleme yapılamadı").setMessage("Mevcut kayıtlar değişmedi.\n"+e.getMessage()).setPositiveButton("Tamam",null).show();else Toast.makeText(this,"İşlem tamamlanamadı: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
     private void writeCsv(Uri u)throws Exception{List<Transaction> rows=db.list(business,search==null?"":search.getText().toString(),exportStart,exportEnd,0);OutputStream os=getContentResolver().openOutputStream(u);OutputStreamWriter w=new OutputStreamWriter(os,StandardCharsets.UTF_8);w.write('\uFEFF');w.write("Tarih;İşletme;Tür;Kategori;Açıklama;Tutar\n");for(Transaction t:rows)w.write(csv(fmtDate(t.date))+";"+csv(t.business)+";"+csv(t.type)+";"+csv(t.category)+";"+csv(t.note)+";"+String.format(Locale.US,"%.2f",t.amount).replace('.',',')+"\n");w.close();Toast.makeText(this,"CSV kaydedildi",Toast.LENGTH_SHORT).show();}
-    private void writeBackup(Uri u)throws Exception{JSONArray a=new JSONArray();for(Transaction t:db.all()){JSONObject o=new JSONObject();o.put("business",t.business);o.put("type",t.type);o.put("amount",t.amount);o.put("category",t.category);o.put("note",t.note);o.put("date",t.date);o.put("syncId",t.syncId);o.put("updatedAt",t.updatedAt);a.put(o);}JSONObject root=new JSONObject();root.put("app","Kocaaslan İş Takip");root.put("version",2);root.put("transactions",a);OutputStream os=getContentResolver().openOutputStream(u);os.write(root.toString(2).getBytes(StandardCharsets.UTF_8));os.close();Toast.makeText(this,"Yedek kaydedildi",Toast.LENGTH_SHORT).show();}
-    private void restoreBackup(Uri u)throws Exception{
+    private void writeBackup(Uri u)throws Exception{
+        try(OutputStream os=getContentResolver().openOutputStream(u)){
+            if(os==null)throw new IOException("Yedek dosyası açılamadı");os.write(BackupData.write(db.all()));
+        }
+        Toast.makeText(this,"Yedek kaydedildi; arşivdeki kayıtlar da korundu",Toast.LENGTH_SHORT).show();
+    }
+    private BackupData readBackup(Uri u)throws Exception {
         ByteArrayOutputStream out=new ByteArrayOutputStream();
         try(InputStream is=getContentResolver().openInputStream(u)){
             if(is==null)throw new IOException("Yedek açılamadı");byte[] buf=new byte[4096];int n;
             while((n=is.read(buf))!=-1){if(out.size()+n>10*1024*1024)throw new IOException("Yedek çok büyük");out.write(buf,0,n);}
         }
-        JSONObject root=new JSONObject(out.toString("UTF-8"));
-        if(!"Kocaaslan İş Takip".equals(root.getString("app"))||(root.getInt("version")!=1&&root.getInt("version")!=2))throw new IOException("Uyumsuz yedek");
-        JSONArray a=root.getJSONArray("transactions");List<Transaction> rows=new ArrayList<>();boolean missingIdentity=false;
-        for(int x=0;x<a.length();x++){
-            JSONObject o=a.getJSONObject(x);String business=o.getString("business"),type=o.getString("type");double amount=o.getDouble("amount");long date=o.getLong("date");
-            if((!B1.equals(business)&&!B2.equals(business))||(!"Gelir".equals(type)&&!"Gider".equals(type))||amount<=0||Double.isNaN(amount)||Double.isInfinite(amount)||date<=0)throw new IOException("Geçersiz kayıt: "+(x+1));
-            if(o.optString("syncId","").trim().isEmpty())missingIdentity=true;
-            rows.add(new Transaction(0,business,type,amount,o.optString("category","Diğer"),o.optString("note",""),date,o.optString("syncId","").trim().isEmpty()?java.util.UUID.nameUUIDFromBytes((out.toString("UTF-8")+"#"+x).getBytes(StandardCharsets.UTF_8)).toString():o.getString("syncId"),o.optLong("updatedAt",0)));
-        }
-        if(rows.isEmpty())throw new IOException("Yedekte işlem kaydı yok. Mevcut kayıtlar değişmedi.");
+        return BackupData.read(out.toByteArray());
+    }
+    private void restoreBackup(Uri u)throws Exception{
+        BackupData backup=readBackup(u);List<Transaction> rows=backup.rows;boolean missingIdentity=backup.missingIdentity;
         String preview="Mevcut kayıtlar korunarak yedekteki "+rows.size()+" kayıt birleştirilecek.\n\n"+backupTotals(rows)+"\n\nAynı kimlikteki mevcut kayıtlar korunur; önceden silinen kayıtlar otomatik geri getirilmez. Devam edilsin mi?";
         Runnable applyRestore=()->{
             DbHelper.RestoreResult result;
@@ -309,7 +309,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
             boolean selectedInBackup=false;for(Transaction t:rows)if(business.equals(t.business)){selectedInBackup=true;break;}
             if(!selectedInBackup)business=rows.get(0).business;
             showAllRecords();
-            String summary="Yedek geri yüklendi.\nYeni eklenen: "+result.added+"\nAynı kimlikle zaten bulunan: "+result.alreadyPresent+"\nÖnceden silinmiş olduğu için eklenmeyen: "+result.previouslyDeleted+"\n\nCihazdaki tüm kayıtlar (mevcut + eklenen):\n"+localTotals()+"\n\nTümü seçildi, arama temizlendi. İşletmeler arasında üstten geçebilirsiniz.";
+            String summary="Yedek geri yüklendi.\nYeni eklenen: "+result.added+"\nAynı kimlikle zaten bulunan: "+result.alreadyPresent+"\nÖnceden silinmiş olduğu için eklenmeyen: "+result.previouslyDeleted+"\n\nCihazdaki tüm kayıtlar (mevcut + eklenen):\n"+localTotals()+"\nArşivde korunan: "+db.archivedCount()+"\n\nTümü seçildi, arama temizlendi. İşletmeler arasında üstten geçebilirsiniz.";
             new AlertDialog.Builder(this).setTitle("Geri yükleme sonucu").setMessage(summary).setPositiveButton("Tamam",null).show();
             try{syncTransaction(0);}catch(Exception e){Toast.makeText(this,"Kayıtlar cihazda yüklendi; bulut aktarımı bekliyor: "+e.getMessage(),Toast.LENGTH_LONG).show();}
         };
@@ -317,7 +317,7 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         new AlertDialog.Builder(this).setTitle("Yedeği geri yükle").setMessage(preview).setNegativeButton("Vazgeç",null).setPositiveButton("Yükle",(d,w)->{
             boolean cloudPossible=true;
             try{cloudPossible=CloudSync.signedIn();}catch(Exception ignored){}
-            if(legacy&&(db.count(B1)>0||db.count(B2)>0||cloudPossible)){
+            if(legacy&&(!db.all().isEmpty()||cloudPossible)){
                 new AlertDialog.Builder(this).setTitle("Bu yedek ikinci kopyalar oluşturabilir")
                     .setMessage("Bu eski yedekte kayıt kimlikleri yok. Cihazınızdaki veya buluttaki aynı kayıtlar yeniden eklenip toplamları artırabilir.\n\nÖnce mevcut kayıtları yedekleyip eski yedekle karşılaştırın. Aynı içerikli kayıtları otomatik silmiyoruz. Yalnızca bu kayıtların ayrı işlemler olduğunu doğruladıysanız ekleyin.")
                     .setNegativeButton("Vazgeç",null).setNeutralButton("Mevcut kayıtları yedekle",(warning,which)->beginBackup())
@@ -326,11 +326,63 @@ public class MainActivity extends Activity implements TransactionAdapter.DeleteL
         }).show();
     }
 
+    private void beginRepair(){
+        new AlertDialog.Builder(this).setTitle("Çift kayıtları düzelt")
+            .setMessage("Kopyalar oluşmadan önce aldığınız eski yedeği seçin (örneğin 10:30 yedeği). Bu dosya geri yüklenmeyecek; geri yüklemenin eklediği kopyaların kimlikleri doğrulanacak.\n\nKopyalar silinmeden arşivde korunacak, gelir/gider toplamlarına katılmayacak. Yeni veya değişmiş işlemler korunur.")
+            .setNegativeButton("Vazgeç",null).setPositiveButton("Eski yedeği seç",(d,w)->{
+                Intent i=new Intent("android.intent.action.OPEN_DOCUMENT");i.setType("application/json");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,REQ_REPAIR);
+            }).show();
+    }
+    private void saveRepairSnapshot()throws Exception {
+        File file=File.createTempFile("Arsivleme_Oncesi_",".json",getFilesDir());
+        try(FileOutputStream out=new FileOutputStream(file)){out.write(BackupData.write(db.all()));out.getFD().sync();}
+    }
+    private void repairBackup(Uri u)throws Exception {
+        BackupData source=readBackup(u);
+        if(!source.allMissingIdentity)throw new IOException("Kopyalar oluşmadan önceki kimliksiz eski yedeği seçin. Güncel yedek bu işlem için kullanılamaz.");
+        BackupRepair.Plan plan=db.previewRepair(source.rows);
+        String details="Arşivlenecek kopya: "+plan.targets.size()+"\nZaten arşivde: "+plan.alreadyArchived+"\nKimliği bulunmayan: "+plan.missing+"\nİçeriği değişmiş, korunacak: "+plan.changed+"\nAsıl kaydı doğrulanamayan, korunacak: "+plan.withoutOriginal;
+        if(plan.targets.isEmpty()){
+            new AlertDialog.Builder(this).setTitle("Arşivlenecek kopya bulunamadı").setMessage(details+"\n\nMevcut kayıtlar değişmedi. Daha önce arşivlenmiş kayıtlar yeniden işlenmez.").setPositiveButton("Tamam",null).show();return;
+        }
+        List<Transaction> activeAfter=new ArrayList<>();Set<String> ids=new HashSet<>();for(Transaction t:plan.targets)ids.add(t.syncId);
+        for(Transaction t:db.all())if(!t.archived&&!ids.contains(t.syncId))activeAfter.add(t);
+        String preview=details+"\n\nArşivlemeden sonra aktif kayıtlar:\n"+backupTotals(activeAfter)+"\n\nKayıtlar silinmeyecek. Arşiv yedeklere dahil edilir; Ayarlar → Arşivdeki kayıtlar bölümünden geri alınabilir. Telefon ve tablette bu güncelleme kurulu olmalı ve aynı hesaba giriş yapılmalı. İşlem öncesi yedek cihazda ayrıca saklanacak.";
+        new AlertDialog.Builder(this).setTitle("Kopyaları arşivle") .setMessage(preview).setNegativeButton("Vazgeç",null)
+            .setNeutralButton("Mevcut kayıtları yedekle",(d,w)->beginBackup())
+            .setPositiveButton("Kopyaları arşivle",(d,w)->{
+                int count;
+                try{saveRepairSnapshot();count=db.archiveRepair(plan);}catch(Exception e){
+                    new AlertDialog.Builder(this).setTitle("Arşivleme uygulanmadı").setMessage("Kayıtlar değişmedi.\n"+e.getMessage()).setPositiveButton("Tamam",null).show();return;
+                }
+                showAllRecords();
+                new AlertDialog.Builder(this).setTitle("Kopyalar arşivlendi")
+                    .setMessage(count+" kopya silinmeden arşivde korundu.\n\nAktif kayıtlar:\n"+localTotals()+"\n\nBulut aktarımı kuyrukta; bağlantı olduğunda diğer güncel cihaz da aynı arşiv durumunu alır. Yedekle düğmesi arşivdeki kayıtları da saklar.").setPositiveButton("Tamam",null).show();
+                try{syncTransaction(0);}catch(Exception e){Toast.makeText(this,"Arşiv cihazda korundu; bulut aktarımı bekliyor: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+            }).show();
+    }
+    private void showArchive(){
+        int count=db.archivedCount();
+        new AlertDialog.Builder(this).setTitle("Arşivdeki kayıtlar")
+            .setMessage(count+" kayıt arşivde saklanıyor ve toplamların dışında tutuluyor. Yedekle düğmesi bunları da dosyaya ekler.\n\nArşivi geri almak kopyaları yeniden toplamların içine getirir.")
+            .setNegativeButton("Kapat",null).setNeutralButton("Yedekle",(d,w)->beginBackup())
+            .setPositiveButton("Arşivi geri al",(d,w)->{
+                if(count==0)return;
+                new AlertDialog.Builder(this).setTitle("Arşivi geri al")
+                    .setMessage("Arşivdeki tüm kayıtlar yeniden aktif olacak; kopyalar toplamları artırabilir. Devam edilsin mi?")
+                    .setNegativeButton("Vazgeç",null).setPositiveButton("Geri al",(confirm,which)->{
+                        try{saveRepairSnapshot();int restored=db.undoArchive();showAllRecords();new AlertDialog.Builder(this).setTitle("Arşiv geri alındı").setMessage(restored+" kayıt yeniden aktif.\n"+localTotals()).setPositiveButton("Tamam",null).show();}
+                        catch(Exception e){new AlertDialog.Builder(this).setTitle("Geri alma yapılamadı").setMessage(String.valueOf(e.getMessage())).setPositiveButton("Tamam",null).show();return;}
+                        try{syncTransaction(0);}catch(Exception e){Toast.makeText(this,"Bulut aktarımı bekliyor",Toast.LENGTH_LONG).show();}
+                    }).show();
+            }).show();
+    }
+
     private String backupTotals(List<Transaction> rows){
-        StringBuilder text=new StringBuilder("Yedek dosyasındaki kayıtlar:");
+        StringBuilder text=new StringBuilder("Aktif kayıtların işletme toplamları:");
         for(String name:new String[]{B1,B2}){
             int count=0;double income=0,expense=0;
-            for(Transaction t:rows)if(name.equals(t.business)){count++;if("Gelir".equals(t.type))income+=t.amount;else expense+=t.amount;}
+            for(Transaction t:rows)if(!t.archived&&name.equals(t.business)){count++;if("Gelir".equals(t.type))income+=t.amount;else expense+=t.amount;}
             text.append("\n").append(name).append(": ").append(count).append(" kayıt\nGelir: ").append(money.format(income)).append("   Gider: ").append(money.format(expense)).append("   Net: ").append(money.format(income-expense));
         }
         return text.toString();

@@ -12,7 +12,7 @@ import java.util.List;
 
 public class DbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "kocaaslan_is_takip.db";
-    private static final int DB_VERSION = 3;
+    private static final int DB_VERSION = 4;
     private static final String T = "transactions";
 
     public DbHelper(Context c) { super(c, DB_NAME, null, DB_VERSION); }
@@ -28,7 +28,8 @@ public class DbHelper extends SQLiteOpenHelper {
                 "date INTEGER NOT NULL," +
                 "sync_id TEXT," +
                 "updated_at INTEGER NOT NULL DEFAULT 0," +
-                "sync_state INTEGER NOT NULL DEFAULT 1)");
+                "sync_state INTEGER NOT NULL DEFAULT 1," +
+                "archived INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE INDEX idx_business_date ON " + T + "(business,date)");
         createOutbox(db);
     }
@@ -42,6 +43,7 @@ public class DbHelper extends SQLiteOpenHelper {
 
         }
         if (oldVersion < 3) createOutbox(db);
+        if (oldVersion < 4) db.execSQL("ALTER TABLE " + T + " ADD COLUMN archived INTEGER NOT NULL DEFAULT 0");
     }
 
     private static void createOutbox(SQLiteDatabase db) {
@@ -109,7 +111,7 @@ public class DbHelper extends SQLiteOpenHelper {
     }
 
     public int count(String business) {
-        try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM "+T+" WHERE business=?",new String[]{business})) {
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM "+T+" WHERE archived=0 AND business=?",new String[]{business})) {
             return c.moveToFirst()?c.getInt(0):0;
         }
     }
@@ -118,6 +120,41 @@ public class DbHelper extends SQLiteOpenHelper {
         try(Cursor c=getReadableDatabase().rawQuery("SELECT id FROM "+T+" WHERE sync_id=?",new String[]{id})) {
             return c.moveToFirst();
         }
+    }
+
+    public int archivedCount() {
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM "+T+" WHERE archived=1",null)) { return c.moveToFirst()?c.getInt(0):0; }
+    }
+
+    public BackupRepair.Plan previewRepair(List<Transaction> reference) {
+        return BackupRepair.plan(reference,all());
+    }
+
+    public int archiveRepair(BackupRepair.Plan preview) {
+        SQLiteDatabase database=getWritableDatabase();database.beginTransaction();
+        try {
+            BackupRepair.Plan current=previewRepair(preview.reference);
+            // Recheck every target and retained counterpart after the preview, inside the write transaction.
+            if(!preview.sameSelection(current))throw new IllegalStateException("Kayıtlar önizlemeden sonra değişti. Eski yedeği yeniden seçin.");
+            for(Transaction t:current.targets) {
+                ContentValues v=new ContentValues();v.put("archived",1);v.put("updated_at",nextVersion(t));v.put("sync_state",1);
+                if(database.update(T,v,"sync_id=? AND updated_at=? AND archived=0",new String[]{t.syncId,String.valueOf(t.updatedAt)})!=1)
+                    throw new IllegalStateException("Kayıt değişti; arşivleme uygulanmadı.");
+            }
+            database.setTransactionSuccessful();return current.targets.size();
+        } finally {database.endTransaction();}
+    }
+
+    public int undoArchive() {
+        SQLiteDatabase database=getWritableDatabase();database.beginTransaction();
+        try {
+            int count=0;
+            for(Transaction t:all())if(t.archived) {
+                ContentValues v=new ContentValues();v.put("archived",0);v.put("updated_at",nextVersion(t));v.put("sync_state",1);
+                count+=database.update(T,v,"sync_id=?",new String[]{t.syncId});
+            }
+            database.setTransactionSuccessful();return count;
+        } finally {database.endTransaction();}
     }
 
     public void delete(long id) {
@@ -137,7 +174,7 @@ public class DbHelper extends SQLiteOpenHelper {
     public double[] stats(String business, long start, long end) {
         double income = 0, expense = 0;
         Cursor c = getReadableDatabase().rawQuery(
-                "SELECT type, COALESCE(SUM(amount),0) FROM " + T + " WHERE business=? AND date>=? AND date<? GROUP BY type",
+                "SELECT type, COALESCE(SUM(amount),0) FROM " + T + " WHERE archived=0 AND business=? AND date>=? AND date<? GROUP BY type",
                 new String[]{business, String.valueOf(start), String.valueOf(end)});
         try {
             while (c.moveToNext()) {
@@ -149,7 +186,7 @@ public class DbHelper extends SQLiteOpenHelper {
 
     public double expenseSum(String business,long start,long end) {
         double total=0;
-        String sql="SELECT COALESCE(SUM(amount),0) FROM "+T+" WHERE business=? AND type=?";
+        String sql="SELECT COALESCE(SUM(amount),0) FROM "+T+" WHERE archived=0 AND business=? AND type=?";
         List<String> args=new ArrayList<>(); args.add(business); args.add("Gider");
         if(start>0){sql+=" AND date>=?";args.add(String.valueOf(start));}
         if(end>0){sql+=" AND date<?";args.add(String.valueOf(end));}
@@ -161,7 +198,7 @@ public class DbHelper extends SQLiteOpenHelper {
     public double[] totalStats(String business) {
         double income = 0, expense = 0;
         Cursor c = getReadableDatabase().rawQuery(
-                "SELECT type, COALESCE(SUM(amount),0) FROM " + T + " WHERE business=? GROUP BY type",
+                "SELECT type, COALESCE(SUM(amount),0) FROM " + T + " WHERE archived=0 AND business=? GROUP BY type",
                 new String[]{business});
         try {
             while (c.moveToNext()) {
@@ -173,7 +210,7 @@ public class DbHelper extends SQLiteOpenHelper {
 
     public List<Transaction> list(String business, String search, long start, long end, int limit) {
         List<Transaction> out = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM " + T + " WHERE business=?");
+        StringBuilder sql = new StringBuilder("SELECT id,business,type,amount,category,note,date,sync_id,updated_at,archived FROM " + T + " WHERE archived=0 AND business=?");
         List<String> args = new ArrayList<>(); args.add(business);
         if (start > 0) { sql.append(" AND date>=?"); args.add(String.valueOf(start)); }
         if (end > 0) { sql.append(" AND date<?"); args.add(String.valueOf(end)); }
@@ -185,24 +222,24 @@ public class DbHelper extends SQLiteOpenHelper {
         if (limit > 0) sql.append(" LIMIT ").append(limit);
         Cursor c = getReadableDatabase().rawQuery(sql.toString(), args.toArray(new String[0]));
         try {
-            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6), c.getString(7), c.getLong(8)));
+            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6), c.getString(7), c.getLong(8), c.getInt(9)!=0));
         } finally { c.close(); }
         return out;
     }
 
     public List<Transaction> all() {
         List<Transaction> out = new ArrayList<>();
-        Cursor c = getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM " + T + " ORDER BY date,id", null);
+        Cursor c = getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at,archived FROM " + T + " ORDER BY date,id", null);
         try {
-            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6), c.getString(7), c.getLong(8)));
+            while (c.moveToNext()) out.add(new Transaction(c.getLong(0), c.getString(1), c.getString(2), c.getDouble(3), c.getString(4), c.getString(5), c.getLong(6), c.getString(7), c.getLong(8), c.getInt(9)!=0));
         } finally { c.close(); }
         return out;
     }
 
 
     public Transaction byId(long id) {
-        Cursor c=getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM "+T+" WHERE id=?",new String[]{String.valueOf(id)});
-        try { if(c.moveToFirst()) return new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getDouble(3),c.getString(4),c.getString(5),c.getLong(6),c.getString(7),c.getLong(8)); }
+        Cursor c=getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at,archived FROM "+T+" WHERE id=?",new String[]{String.valueOf(id)});
+        try { if(c.moveToFirst()) return new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getDouble(3),c.getString(4),c.getString(5),c.getLong(6),c.getString(7),c.getLong(8),c.getInt(9)!=0); }
         finally { c.close(); }
         return null;
     }
@@ -211,7 +248,7 @@ public class DbHelper extends SQLiteOpenHelper {
         ContentValues v=new ContentValues();
         v.put("business",t.business);v.put("type",t.type);v.put("amount",t.amount);
         v.put("category",t.category);v.put("note",t.note);v.put("date",t.date);
-        v.put("sync_id",t.syncId);v.put("updated_at",t.updatedAt);
+        v.put("sync_id",t.syncId);v.put("updated_at",t.updatedAt);v.put("archived",t.archived?1:0);
         return v;
     }
 
@@ -235,8 +272,8 @@ public class DbHelper extends SQLiteOpenHelper {
 
     public List<Transaction> pending() {
         List<Transaction> rows=new ArrayList<>();
-        try(Cursor c=getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at FROM "+T+" WHERE sync_state=1",null)) {
-            while(c.moveToNext())rows.add(new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getDouble(3),c.getString(4),c.getString(5),c.getLong(6),c.getString(7),c.getLong(8)));
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT id,business,type,amount,category,note,date,sync_id,updated_at,archived FROM "+T+" WHERE sync_state=1",null)) {
+            while(c.moveToNext())rows.add(new Transaction(c.getLong(0),c.getString(1),c.getString(2),c.getDouble(3),c.getString(4),c.getString(5),c.getLong(6),c.getString(7),c.getLong(8),c.getInt(9)!=0));
         }
         return rows;
     }

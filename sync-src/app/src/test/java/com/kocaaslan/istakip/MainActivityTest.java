@@ -51,7 +51,7 @@ public class MainActivityTest {
         java.lang.reflect.Method write=MainActivity.class.getDeclaredMethod("writeBackup",android.net.Uri.class);write.setAccessible(true);write.invoke(activity,uri);
         org.json.JSONObject backup=new org.json.JSONObject(new String(java.nio.file.Files.readAllBytes(file.toPath()),java.nio.charset.StandardCharsets.UTF_8));
         org.json.JSONObject row=backup.getJSONArray("transactions").getJSONObject(0);
-        assertEquals(2,backup.getInt("version"));assertEquals(original.syncId,row.getString("syncId"));assertEquals(original.updatedAt,row.getLong("updatedAt"));
+        assertEquals(3,backup.getInt("version"));assertEquals(original.syncId,row.getString("syncId"));assertEquals(original.updatedAt,row.getLong("updatedAt"));
         db.add("Yavuz Kocaaslan","Gelir",30,"Satış","keep",2000);
         java.lang.reflect.Method restore=MainActivity.class.getDeclaredMethod("restoreBackup",android.net.Uri.class);restore.setAccessible(true);
         for(int i=0;i<2;i++){
@@ -142,4 +142,46 @@ public class MainActivityTest {
         frame.measure(View.MeasureSpec.makeMeasureSpec(360,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(640,View.MeasureSpec.EXACTLY));frame.layout(0,0,360,640);
         assertTrue(bottom.getHeight()>0);assertTrue(bottom.getBottom()<=640);
     }
+    private android.app.AlertDialog previewRepair(android.net.Uri uri)throws Exception {
+        java.lang.reflect.Method method=MainActivity.class.getDeclaredMethod("repairBackup",android.net.Uri.class);method.setAccessible(true);method.invoke(activity,uri);
+        return org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+    }
+    private android.net.Uri doubledFixture()throws Exception {
+        android.net.Uri uri=backupFile("repair-source.json",1,new Transaction(0,"Yavuz Kocaaslan","Gider",15,"Kira","same",2000));
+        BackupData original=BackupData.read(java.nio.file.Files.readAllBytes(new java.io.File(uri.getPath()).toPath()));
+        DbHelper db=field("db");db.upsertFromCloud(new Transaction(0,"Yavuz Kocaaslan","Gider",15,"Kira","same",2000,"original",12));db.upsertFromCloud(original.rows.get(0));
+        return uri;
+    }
+    @Test public void repairPreviewCancelLeavesAllRowsTotalsAndOutboxUnchanged()throws Exception {
+        android.app.AlertDialog preview=previewRepair(doubledFixture());DbHelper db=field("db");
+        assertTrue(dialogMessage(preview).contains("Arşivlenecek kopya: 1"));assertEquals(30,db.totalStats("Yavuz Kocaaslan")[1],0);assertEquals(0,db.archivedCount());
+        preview.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals(2,db.all().size());assertEquals(0,db.archivedCount());assertTrue(db.pending().isEmpty());
+    }
+    @Test public void repairArchivesWithoutDeletingAndBackupAndUndoRemainAvailable()throws Exception {
+        android.app.AlertDialog preview=previewRepair(doubledFixture());DbHelper db=field("db");
+        preview.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals(2,db.all().size());assertEquals(1,db.archivedCount());assertEquals(15,db.totalStats("Yavuz Kocaaslan")[1],0);assertEquals(1,((TransactionAdapter)field("adapter")).getCount());
+        assertTrue(dialogMessage(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()).contains("silinmeden"));
+        java.io.File[] snapshots=activity.getFilesDir().listFiles((dir,name)->name.startsWith("Arsivleme_Oncesi_"));assertTrue(snapshots.length>0);
+        boolean fullSnapshot=false;for(java.io.File f:snapshots){BackupData snap=BackupData.read(java.nio.file.Files.readAllBytes(f.toPath()));if(snap.rows.size()==2&&snap.rows.stream().noneMatch(t->t.archived))fullSnapshot=true;}assertTrue(fullSnapshot);
+        java.lang.reflect.Method archive=MainActivity.class.getDeclaredMethod("showArchive");archive.setAccessible(true);archive.invoke(activity);
+        org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals(1,db.archivedCount());
+        org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals(0,db.archivedCount());assertEquals(2,db.all().size());assertEquals(30,db.totalStats("Yavuz Kocaaslan")[1],0);
+    }
+    @Test public void changedRecordAfterPreviewStopsRepairWithoutPartialChanges()throws Exception {
+        android.app.AlertDialog preview=previewRepair(doubledFixture());DbHelper db=field("db");Transaction original=db.all().stream().filter(t->t.syncId.equals("original")).findFirst().get();original.amount=16;db.update(original);
+        preview.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        assertEquals(2,db.all().size());assertEquals(0,db.archivedCount());assertEquals(31,db.totalStats("Yavuz Kocaaslan")[1],0);
+        assertTrue(dialogMessage(org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()).contains("önizlemeden sonra değişti"));
+    }
+    @Test public void repairButtonUsesSeparateDocumentPickerInsteadOfRestoring()throws Exception {
+        Button repair=button(activity.getWindow().getDecorView(),"Çift kayıtları düzelt");assertNotNull(repair);repair.performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        android.app.AlertDialog dialog=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();assertTrue(dialogMessage(dialog).contains("geri yüklenmeyecek"));
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        org.robolectric.shadows.ShadowActivity.IntentForResult request=Shadows.shadowOf(activity).getNextStartedActivityForResult();assertEquals(1004,request.requestCode);assertEquals("android.intent.action.OPEN_DOCUMENT",request.intent.getAction());
+    }
+
 }

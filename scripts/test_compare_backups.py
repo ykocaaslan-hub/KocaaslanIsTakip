@@ -74,6 +74,23 @@ class ComparisonTest(unittest.TestCase):
         self.assertEqual(flags, [False, True])
         self.assertEqual(result['deletion_candidates'], [])
 
+    def test_v3_archive_is_preserved_in_report_and_excluded_from_active_totals(self):
+        original = self.backup('original.json', [row(None)], 1)
+        active, archived = row('original'), row('import')
+        active['archived'], archived['archived'] = False, True
+        current = self.backup('current.json', [active, archived], 3)
+        result = compare(load_backup(current), load_backup(original))
+        self.assertEqual(result['current_totals']['shop']['expense'], '5')
+        self.assertEqual(result['current_archived_rows'], 1)
+        self.assertEqual([r['archived'] for r in result['equal_content_groups'][0]['current_rows']], [False, True])
+        self.assertEqual(len(load_backup(current)['rows']), 2)
+
+    def test_v3_rejects_missing_identity_or_invalid_archive_flag(self):
+        for item in [row(None), row('a'), dict(row('a'), archived='false')]:
+            current = self.backup('invalid.json', [item], 3)
+            with self.assertRaises(ValueError):
+                load_backup(current)
+
     def test_inputs_cannot_be_overwritten(self):
         original = self.backup('original.json', [row(None)], 1)
         current = self.backup('current.json', [row('a')])

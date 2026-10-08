@@ -1,6 +1,6 @@
 # Issue #3 validation
 
-The app retains `kocaaslan_is_takip.db` and upgrades it in place to schema 3.
+The app retains `kocaaslan_is_takip.db` and upgrades it in place to schema 4.
 No record is removed or combined because its content resembles another record.
 Missing/duplicate sync IDs are repaired without deleting rows. Existing IDs remain
 unchanged wherever possible. Existing content duplicates are intentionally retained.
@@ -88,8 +88,8 @@ import as failed.
 Additional regression cases use historical v1 backups, an active search, another
 business, repeated import, recreation, retained local rows and deletion tombstones,
 a transaction rollback on invalid input, and Firebase unavailable after import.
-These tests validate visibility and calculations for fixture data, not the user's
-actual backup or amounts, which have not been provided.
+These tests validate visibility and calculations for fixture data. Provided user
+backups were subsequently compared locally; their contents are not committed.
 
 ## Identity-less legacy backup overlap
 
@@ -118,4 +118,55 @@ signal, not proof that an entry should be deleted. Two legitimate identical entr
 in the original remain two in the baseline; the tool never selects a deletion or
 writes to SQLite/Firestore. It does not establish which of two different IDs is the
 original when the reference has no IDs. Actual user backups and explicit ID-based
-review are still required before repairing existing duplicated data.
+review are required before repairing existing duplicated data.
+
+
+## Reversible legacy-import repair
+
+`Çift kayıtları düzelt` opens a separate document picker for the exact, pre-import
+legacy file. This action never imports that file. `BackupData` reproduces the existing
+UUID algorithm from its UTF-8 text and zero-based row position. The repair accepts
+only a source with no original identities; it must find those exact import IDs in the
+current database, with unchanged content and enough active, non-import counterpart
+IDs to preserve the source's multiplicity. Equal content without matching import IDs
+is never sufficient. New transactions, edited copies, missing originals and genuine
+repeated source transactions are preserved. Changed file bytes give different IDs and
+produce no matching targets. This is explicit reversal of a reviewed import, never a
+startup content-deduplication routine.
+
+The preview gives archive/skip counts and both businesses' resulting active totals.
+Cancel and exporting a backup do not mutate data. Positive confirmation saves a full
+v3 pre-operation snapshot in app-private storage, then atomically revalidates target
+and retained-counterpart identities, content and versions. A changed preview aborts
+the whole operation. The SQLite v4 migration adds `archived` with a default of false;
+archive toggles this field with a new version and a pending upload. No transaction is
+deleted or moved out of its existing database row, and no deletion tombstone is made.
+
+Active lists, income/expense/net, period totals, categories, charts and CSV exclude
+archives. `all()` and the outbox include them. Firestore documents retain the entire
+payload and receive `archived: true/false`; the same existing version checks apply.
+A newer archive defeats an older upload/cached snapshot. Offline archive/undo stays
+in SQLite across restarts. `Ayarlar → Arşivdeki kayıtlar → Arşivi geri al` explicitly
+reactivates archived entries with a newer version and queues that change for other
+devices. It warns that copies will increase totals again. Archives are recoverable
+without depending on a Firestore deletion or reinstating a new identity.
+
+New backup schema 3 includes **every** active and archived record, original sync IDs,
+versions and boolean archive state. Restoring into an empty database preserves this
+state; merging into an existing database still leaves its newer/current rows intact.
+A v3 backup without an identity or a boolean archive flag is rejected. Legacy v1 and
+v2 remain readable; an older APK may reject v3 and cannot apply archive flags. **Both
+phone and tablet must install this update before checking cross-device totals.**
+Keep the app installed, use the same Firebase UID and let queued writes finish.
+Archive the import once on the affected device; the other updated device receives
+the archive state. An offline/newer edit can still win according to the documented
+version policy; there is no claim of a live-device result from mocked tests.
+
+Repair validation covers a 220-original/220-import fixture plus a new transaction,
+all 441 rows retained, active counts/totals, genuine identical reference entries,
+insufficient originals, changed copies/counterparts, atomic stale-preview rejection,
+restart/repeated repair, v3 restore, undo, stale snapshot protection, offline upload
+payload and a second database's archive/undo download. UI cases cover preview/cancel,
+confirmation, automatic pre-operation snapshot, visible corrected totals, undo,
+changed preview and the separate picker. User backups are used only for a local Java
+planner check; no financial data, notes or private files are included in this PR.

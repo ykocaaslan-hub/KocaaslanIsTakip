@@ -1,4 +1,4 @@
-"""Read-only comparison of Kocaaslan v1/v2 backups. Never chooses/deletes rows."""
+"""Read-only comparison of Kocaaslan v1/v2/v3 backups. Never chooses/deletes rows."""
 import argparse
 from collections import defaultdict
 from decimal import Decimal
@@ -11,7 +11,7 @@ from pathlib import Path
 def load_backup(path):
     raw = Path(path).read_bytes()
     data = json.loads(raw.decode('utf-8-sig'), parse_float=Decimal)
-    if data.get('app') != 'Kocaaslan İş Takip' or data.get('version') not in (1, 2):
+    if data.get('app') != 'Kocaaslan İş Takip' or data.get('version') not in (1, 2, 3):
         raise ValueError('Unsupported backup format')
     if not isinstance(data.get('transactions'), list):
         raise ValueError('Missing transactions array')
@@ -32,7 +32,10 @@ def load_backup(path):
             identity = None
         if not isinstance(category, str) or not isinstance(note, str) or (identity is not None and not isinstance(identity, str)):
             raise ValueError(f'Invalid text/identity in row {index}')
-        rows.append(dict(row=index, business=business, type=kind, amount=amount,
+        archived = item.get("archived", False) if data["version"] == 3 else False
+        if data["version"] == 3 and (identity is None or "archived" not in item or not isinstance(archived, bool)):
+            raise ValueError(f"Invalid archive state/identity in row {index}")
+        rows.append(dict(archived=archived, row=index, business=business, type=kind, amount=amount,
                          category=category, note=note, date=int(date), syncId=identity,
                          # Exact compatibility with Java UUID.nameUUIDFromBytes(fileText + "#" + index).
                          app_legacy_import_syncId=str(uuid.UUID(bytes=hashlib.md5(raw + b'#' + str(index-1).encode(), usedforsecurity=False).digest(), version=3)) if identity is None else None))
@@ -46,6 +49,8 @@ def content_key(row):
 def totals(rows):
     businesses = defaultdict(lambda: dict(rows=0, income=Decimal(0), expense=Decimal(0)))
     for row in rows:
+        if row.get('archived', False):
+            continue
         b = businesses[row['business']]
         b['rows'] += 1
         b['income' if row['type'] == 'Gelir' else 'expense'] += row['amount']
@@ -72,7 +77,7 @@ def compare(current, reference):
                      for k in ('business', 'type', 'amount', 'category', 'note', 'date')},
             current_count=len(rows), reference_count=len(original),
             additional_rows_compared_with_reference=max(0, len(rows)-len(original)) if original else None,
-            current_rows=[dict(row=r['row'], syncId=r['syncId'],
+            current_rows=[dict(row=r['row'], syncId=r['syncId'], archived=r.get('archived', False),
                                identity_present_in_reference=bool(r['syncId'] and r['syncId'] in reference_ids),
                                matches_app_legacy_import_id=bool(r['syncId'] and r['syncId'] in legacy_ids)) for r in rows],
             reference_rows=[dict(row=r['row'], syncId=r['syncId'], app_legacy_import_syncId=r['app_legacy_import_syncId']) for r in original]))
@@ -82,6 +87,8 @@ def compare(current, reference):
         current={k: current[k] for k in ('file', 'sha256')},
         reference={k: reference[k] for k in ('file', 'sha256')},
         current_totals=totals(current['rows']), reference_totals=totals(reference['rows']),
+        current_archived_rows=sum(r.get('archived', False) for r in current['rows']),
+        reference_archived_rows=sum(r.get('archived', False) for r in reference['rows']),
         exact_double_by_content=bool(before) and set(now) == set(before) and all(len(now[k]) == 2*len(v) for k, v in before.items()),
         equal_content_groups=groups,
         deletion_candidates=[],

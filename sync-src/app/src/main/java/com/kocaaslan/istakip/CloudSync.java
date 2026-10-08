@@ -49,7 +49,7 @@ public final class CloudSync {
     private static CollectionReference rows(String user){ return fs().collection("kullanicilar").document(user).collection("işlemler"); }
     private static Map<String,Object> values(Transaction t){
         Map<String,Object> m=new HashMap<>();m.put("business",t.business);m.put("type",t.type);m.put("amount",t.amount);
-        m.put("category",t.category);m.put("note",t.note);m.put("date",t.date);m.put("updatedAt",t.updatedAt);m.put("deleted",false);return m;
+        m.put("category",t.category);m.put("note",t.note);m.put("date",t.date);m.put("updatedAt",t.updatedAt);m.put("deleted",false);m.put("archived",t.archived);return m;
     }
     private static void apply(DbHelper local,DocumentSnapshot d){
         Long updated=d.getLong("updatedAt");long version=updated==null?0:updated;
@@ -58,7 +58,7 @@ public final class CloudSync {
         Double amount=d.getDouble("amount");Long date=d.getLong("date");
         if(business==null||(!"Gelir".equals(type)&&!"Gider".equals(type))||amount==null||(Double.isNaN(amount)||Double.isInfinite(amount))||amount<=0||date==null||date<=0)
             throw new IllegalArgumentException("Geçersiz bulut kaydı: "+d.getId());
-        local.upsertFromCloud(new Transaction(0,business,type,amount,category==null?"Diğer":category,note==null?"":note,date,d.getId(),version));
+        local.upsertFromCloud(new Transaction(0,business,type,amount,category==null?"Diğer":category,note==null?"":note,date,d.getId(),version,Boolean.TRUE.equals(d.getBoolean("archived"))));
     }
 
     public static Session listen(DbHelper local,Changed changed,Result status){
